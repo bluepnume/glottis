@@ -1,7 +1,19 @@
 {
     "$schema": "https://unpkg.com/knip@latest/schema.json",
-    "entry": [ "src/index.ts", "test/**/*.test.ts", "test/pages/*.ts", "test/agent/shop.ts" ],
-    "project": [ "src/**/*.ts", "test/**/*.ts" ],
-    "exclude": [ "enumMembers", "duplicates", "binaries" ],
+    "entry": [
+        "src/index.ts",
+        "test/**/*.test.ts",
+        "test/pages/*.ts",
+        "test/agent/shop.ts"
+    ],
+    "project": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+    ],
+    "exclude": [
+        "enumMembers",
+        "duplicates",
+        "binaries"
+    ],
     "ignoreExportsUsedInFile": true
 }
