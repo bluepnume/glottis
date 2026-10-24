@@ -29,6 +29,23 @@ const shop = await connect({ url: 'https://shop.example/api' });
 await shop.exports.hello({ name: 'Ada' });   // logs 'Hello, Ada!' in the shop.example frame
 ```
 
+Functions can return things too, including things only the frame can see. Here the page shares what is in its own `localStorage`, which no other site could read directly:
+
+```js
+// On https://shop.example/api
+serve({
+    domain:  '*',
+    exports: {
+        getRecentlyViewed: () => JSON.parse(localStorage.getItem('recentlyViewed') ?? '[]')
+    }
+});
+```
+
+```js
+// On any other site
+const viewed = await shop.exports.getRecentlyViewed();   // [{ id: 'socks', name: 'Wool socks' }, ...]
+```
+
 That is the whole idea. Everything below builds on these two calls, one step at a time.
 
 - [Install](#install)
