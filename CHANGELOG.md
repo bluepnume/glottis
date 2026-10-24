@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 (2026-10-23)
+
+* published from CI through the npm trusted publisher
+
 ## 0.1.0 (2026-10-23)
 
 The first release.
