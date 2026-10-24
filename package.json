@@ -1,0 +1,54 @@
+{
+    "name": "cugel-boilerplate",
+    "version": "0.1.0",
+    "description": "Starting point for a TypeScript library on cugel-scripts: one exported function, node and browser tests, a tree-shaking check, and the publish workflow. Clone it, rename it, write code.",
+    "keywords": [
+        "template",
+        "boilerplate",
+        "typescript",
+        "cugel"
+    ],
+    "homepage": "https://github.com/bluepnume/cugel-boilerplate#readme",
+    "bugs": {
+        "url": "https://github.com/bluepnume/cugel-boilerplate/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bluepnume/cugel-boilerplate.git"
+    },
+    "license": "MIT",
+    "author": "Daniel Brain",
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/src/index.d.ts",
+            "import": "./dist/src/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "cugel-scripts build",
+        "fix": "cugel-scripts fix --changed",
+        "fix:all": "cugel-scripts fix",
+        "imports:missing": "cugel-scripts imports:missing --changed",
+        "lint": "cugel-scripts lint",
+        "test:static": "cugel-scripts static",
+        "test:unit": "cugel-scripts test --coverage",
+        "test:watch": "cugel-scripts test --watch",
+        "test": "npm run test:static && npm run test:unit && npm run build",
+        "prepack": "npm run build"
+    },
+    "devDependencies": {
+        "cugel-scripts": "^0.1.0",
+        "esbuild": "^0.28.0"
+    }
+}
