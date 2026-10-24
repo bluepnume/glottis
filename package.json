@@ -50,9 +50,12 @@
         "test:unit": "cugel-scripts test --coverage",
         "test:watch": "cugel-scripts test --watch",
         "test": "npm run test:static && npm run build && npm run test:unit",
-        "prepack": "npm run build"
+        "prepack": "npm run build",
+        "test:agent": "node test/agent/run.ts"
     },
     "devDependencies": {
+        "@anthropic-ai/claude-agent-sdk": "^0.3.310",
+        "@modelcontextprotocol/sdk": "^1.32.2",
         "@vitest/browser-playwright": "^5.0.5",
         "@vitest/coverage-istanbul": "^5.0.5",
         "cugel-scripts": "^0.1.0",

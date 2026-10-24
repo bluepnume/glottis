@@ -1,3 +1,5 @@
+<img src="logo.png" alt="" width="100" align="right">
+
 # glottis
 
 Give a web page a public client API. A page calls `serve()` with some functions, and any other page, frame, popup or in-page script calls `connect()` and uses them as if they were local. Functions travel by reference in both directions, so you can pass callbacks and return objects full of live methods.
@@ -967,6 +969,19 @@ The script-tag build is about 64 KB minified and 22 KB gzipped, most of it post-
 - Cancelling a call already in progress with an `AbortSignal`.
 - Callers in an extension's isolated world.
 - Version negotiation between different releases of glottis.
+
+## Testing with a real agent
+
+`npm test` checks glottis against a stand-in for WebMCP and against Chrome's own implementation. Whether an AI agent can actually use what a page offers, such as tools that appear as results create them, needs a real agent. `npm run test:agent` runs one:
+
+```sh
+npm run test:agent
+npm run test:agent -- --scenario bound-cart --runs 3 --model claude-sonnet-5-5
+```
+
+A Claude agent, through the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) and signed in as you, works a small shop served from a cross-origin frame in Chrome with WebMCP turned on. The page's tools reach it as an MCP server, and each scenario then checks what the agent did to the shop: what it ordered, what it added to the wishlist, which date it chose. It's slow, uses tokens, and an agent's choices vary, so it isn't part of `npm test`. Reports land in `agent-results/`.
+
+The bridge in [test/agent/run.ts](test/agent/run.ts) also shows how to pass a glottis page's tools on to an MCP client. Results need no translation, since they're already MCP tool results. One thing matters: when a call creates bound tools, send `notifications/tools/list_changed` and wait for the client to fetch the new list before returning the result. Otherwise the agent's next request can be built from the old list, without the tools the result just named.
 
 ## License
 
