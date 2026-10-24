@@ -15,8 +15,6 @@ serve({
             // This runs here, inside the child frame showing shop.example,
             // not on the parent page that called it.
             console.log(`Hello, ${ name }!`);
-
-            return `Hello, ${ name }!`;
         }
     }
 });
@@ -28,7 +26,7 @@ import { connect } from 'spor';
 
 const shop = await connect({ url: 'https://shop.example/api' });
 
-await shop.exports.hello({ name: 'Ada' });   // 'Hello, Ada!'
+await shop.exports.hello({ name: 'Ada' });   // logs 'Hello, Ada!' in the shop.example frame
 ```
 
 That is the whole idea. Everything below builds on these two calls, one step at a time.
