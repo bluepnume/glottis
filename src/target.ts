@@ -1,4 +1,4 @@
-// The window a connection talks to: an iframe or popup mycelium creates, or a
+// The window a connection talks to: an iframe or popup spor creates, or a
 // frame or window the caller already has.
 
 import { assertExists, popup } from 'belter';
@@ -35,7 +35,7 @@ export type ExistingTarget = Window | HTMLIFrameElement;
 export type OpenedTarget = {
     readonly win : Window,
     readonly frame : HTMLIFrameElement | undefined,
-    // Whether mycelium made it, and so removes it when the connection ends.
+    // Whether spor made it, and so removes it when the connection ends.
     readonly owned : boolean,
     readonly remove : () => void,
 };
@@ -139,7 +139,7 @@ type OpenTargetOptions = {
 export const openTarget = ({ url, target } : OpenTargetOptions) : OpenedTarget => {
     if (isExistingTarget(target)) {
         if (url !== undefined) {
-            throw new TypeError(`Pass either \`url\` (mycelium opens it) or an existing frame or window as \`target\`, not both`);
+            throw new TypeError(`Pass either \`url\` (spor opens it) or an existing frame or window as \`target\`, not both`);
         }
 
         if (target instanceof HTMLIFrameElement) {

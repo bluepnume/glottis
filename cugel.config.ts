@@ -1,7 +1,7 @@
 import type { BuildOptions } from 'cugel-scripts/build';
 
 // ES2019 syntax, and one minified script-tag bundle for pages that load
-// mycelium directly, as `window.mycelium`.
+// spor directly, as `window.spor`.
 // eslint-disable-next-line import/no-default-export -- cugel-scripts reads the config's default export
 export default {
     build: {
@@ -9,8 +9,8 @@ export default {
 
         bundle: {
             entry:      'src/index.ts',
-            outfile:    'dist/mycelium.min.js',
-            globalName: 'mycelium'
+            outfile:    'dist/spor.min.js',
+            globalName: 'spor'
         }
     } satisfies Omit<BuildOptions, 'root'>
 };

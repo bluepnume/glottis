@@ -5,7 +5,7 @@ import { cleanFrames, pageUrl } from './common';
 afterEach(cleanFrames);
 
 describe('the script-tag bundle', () => {
-    it('serves from dist/mycelium.min.js through window.mycelium', async () => {
+    it('serves from dist/spor.min.js through window.spor', async () => {
         type Bundle = {
             readonly add : (args : { readonly a : number, readonly b : number }) => number,
             readonly version : string,

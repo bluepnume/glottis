@@ -1,10 +1,12 @@
-# mycelium
+# spor
 
 Give a web page a public client API. A page calls `serve()` with some functions, and any other page, frame, popup or in-page script calls `connect()` and uses them as if they were local. Functions travel by reference in both directions, so you can pass callbacks and return objects full of live methods.
 
+The name comes from the spore a fungal network grows from: each page that calls `serve()` is one more node in a web of connected frames.
+
 ```js
 // On https://shop.example/api, the page being called
-import { serve } from 'mycelium';
+import { serve } from 'spor';
 
 serve({
     domain:  '*',
@@ -22,7 +24,7 @@ serve({
 
 ```js
 // On any other site
-import { connect } from 'mycelium';
+import { connect } from 'spor';
 
 const shop = await connect({ url: 'https://shop.example/api' });
 
@@ -51,19 +53,19 @@ That is the whole idea. Everything below builds on these two calls, one step at 
 ## Install
 
 ```sh
-npm install mycelium
+npm install spor
 ```
 
-Or, on a page without a bundler, load the script-tag build. It defines `window.mycelium`:
+Or, on a page without a bundler, load the script-tag build. It defines `window.spor`:
 
 ```html
-<script src="https://unpkg.com/mycelium/dist/mycelium.min.js"></script>
+<script src="https://unpkg.com/spor/dist/spor.min.js"></script>
 <script>
-    window.mycelium.serve({ domain: '*', exports: { ping: () => 'pong' } });
+    window.spor.serve({ domain: '*', exports: { ping: () => 'pong' } });
 </script>
 ```
 
-mycelium supports current versions of Chrome, Edge, Firefox and Safari.
+spor supports current versions of Chrome, Edge, Firefox and Safari.
 
 ## The basics
 
@@ -120,7 +122,7 @@ This removes the hidden iframe and releases everything the connection held. Call
 
 ## What crosses the boundary
 
-mycelium has one rule: **data is copied, functions are live.**
+spor has one rule: **data is copied, functions are live.**
 
 - **Plain data** (objects, arrays, strings, numbers, booleans, `null`, `undefined`, `Date`, `RegExp`) is copied. Changing a copy changes nothing on the other side.
 - **Functions** go by reference. The other side gets a function that calls the original in its own window and resolves with the result.
@@ -213,7 +215,7 @@ serve({ domain: '*', exports });                                        // anyon
 
 A caller that is refused gets a `DomainError` from `connect()`.
 
-The caller checks the other direction automatically. When you connect by `url`, mycelium only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
+The caller checks the other direction automatically. When you connect by `url`, spor only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
 
 ## Props
 
@@ -232,7 +234,7 @@ The page reads props through the per-connection form of `exports`, described nex
 
 ## Exports per connection
 
-`exports` can also be a function. mycelium calls it once for every connection, with what it knows about the caller:
+`exports` can also be a function. spor calls it once for every connection, with what it knows about the caller:
 
 ```js
 serve({
@@ -271,7 +273,7 @@ Every connection gets its own run of this function, so each caller has its own s
 
 ```js
 import { z } from 'zod';
-import { describe, serve } from 'mycelium';
+import { describe, serve } from 'spor';
 
 serve({
     domain:  '*',
@@ -298,7 +300,7 @@ The handler receives the validated value, with defaults applied.
 
 ### Schemas
 
-`input` and `output` accept any [Standard Schema](https://standardschema.dev) validator, such as zod, valibot or arktype. mycelium does not depend on any of them.
+`input` and `output` accept any [Standard Schema](https://standardschema.dev) validator, such as zod, valibot or arktype. spor does not depend on any of them.
 
 - **Validators that can describe themselves as JSON Schema** (zod 4 can) put that JSON Schema in the manifest automatically.
 - **Other validators** still validate. Pass `jsonSchema: { input, output }` if you want JSON Schema in the manifest too.
@@ -403,7 +405,7 @@ button.addEventListener('click', async () => {
 });
 ```
 
-Browsers only open popups during a click, and mycelium opens the window as its very first step, so call `connect()` directly in the click handler, before any `await`. mycelium closes the popup on disconnect, and ends the connection if the user closes it.
+Browsers only open popups during a click, and spor opens the window as its very first step, so call `connect()` directly in the click handler, before any `await`. spor closes the popup on disconnect, and ends the connection if the user closes it.
 
 ### A frame or window you already have
 
@@ -412,7 +414,7 @@ await connect({ target: document.querySelector('iframe'), domain: 'https://shop.
 await connect({ target: someWindow, domain: 'https://shop.example' });
 ```
 
-There is no URL to check against, so `domain` is required. mycelium never removes a frame or window it did not create.
+There is no URL to check against, so `domain` is required. spor never removes a frame or window it did not create.
 
 ## The connection lifecycle
 
@@ -450,7 +452,7 @@ await connect({
 
 ### Navigation and reloads
 
-When the page in the frame navigates or reloads, the connection survives. mycelium reports `onDisconnect({ reason: 'navigated', reconnecting: true })`, waits for the new page to serve the same service, connects again with the current props, and reports `onReconnect`. This matters for sign-in flows, which usually navigate the frame.
+When the page in the frame navigates or reloads, the connection survives. spor reports `onDisconnect({ reason: 'navigated', reconnecting: true })`, waits for the new page to serve the same service, connects again with the current props, and reports `onReconnect`. This matters for sign-in flows, which usually navigate the frame.
 
 References from the old page reject with a `DisconnectedError`, because the functions they pointed at are gone. Take fresh ones from `connection.exports` after `onReconnect`.
 
@@ -471,11 +473,11 @@ Serving the same name twice on one page throws.
 
 ## Callers on the same page
 
-A serving page also gets `window.mycelium.connect()`, so other code in the page, browser extensions running in the page's main world, and browser automation agents can use its API without a frame:
+A serving page also gets `window.spor.connect()`, so other code in the page, browser extensions running in the page's main world, and browser automation agents can use its API without a frame:
 
 ```js
-const page = await window.mycelium.connect();                       // the default service
-const checkout = await window.mycelium.connect({ service: 'checkout' });
+const page = await window.spor.connect();                       // the default service
+const checkout = await window.spor.connect({ service: 'checkout' });
 ```
 
 These connections behave exactly like remote ones. Data is copied and functions are references, so code that works here works across frames too.
@@ -488,7 +490,7 @@ Pages can publish the type of their exports, and callers can use it:
 
 ```ts
 // page
-import type { ExportsOf } from 'mycelium';
+import type { ExportsOf } from 'spor';
 
 const exports = { add: ({ a, b } : { a : number, b : number }) => a + b };
 
@@ -604,7 +606,7 @@ Resolves with a connection:
 
 ## How it works
 
-mycelium runs on [post-robot](https://github.com/bluepnume/post-robot), which carries messages between windows, and [sandestin](https://github.com/bluepnume/sandestin), which turns functions and promises into references that call home.
+spor runs on [post-robot](https://github.com/bluepnume/post-robot), which carries messages between windows, and [sandestin](https://github.com/bluepnume/sandestin), which turns functions and promises into references that call home.
 
 1. When a page calls `serve()`, it announces its services to the window that framed or opened it.
 2. `connect()` listens for that announcement, checks the page's origin, and sends a connect request with the service name and props.
@@ -618,7 +620,7 @@ The script-tag build is about 56 KB minified and 19 KB gzipped, most of it post-
 - Cancelling a call already in progress with an `AbortSignal`.
 - Exposing exports to AI agents through the browser's WebMCP API.
 - Callers in an extension's isolated world.
-- Version negotiation between different releases of mycelium.
+- Version negotiation between different releases of spor.
 
 ## License
 

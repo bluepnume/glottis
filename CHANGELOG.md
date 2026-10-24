@@ -10,4 +10,4 @@ The first release.
 * props from the caller, merged by `updateProps()` and validated by an optional schema
 * `describe.function()` adds descriptions and Standard Schema validation (zod, valibot, arktype), with JSON Schema in a manifest every connection carries
 * `domain` is required on `serve()`, and accepts a string, a RegExp, a list, or a sync or async callback
-* `window.mycelium.connect()` on a serving page connects scripts in the same page, with the same copy and reference rules as a remote connection
+* `window.spor.connect()` on a serving page connects scripts in the same page, with the same copy and reference rules as a remote connection

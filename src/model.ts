@@ -1,5 +1,5 @@
 // The records the page side and the caller side keep, shared through one
-// window global so two copies of mycelium on a page see the same services
+// window global so two copies of spor on a page see the same services
 // and connections.
 
 import type { DisconnectReason } from './constants';

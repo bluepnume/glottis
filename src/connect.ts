@@ -33,7 +33,7 @@ const GOODBYE_SETTLE_DELAY = 50;
 
 export type ConnectOptions<Exports = unknown> = ConnectionCallbacks<Exports> & {
     // The page to open. Leave out both `url` and `target` to connect to the
-    // services on this page (window.mycelium.connect()).
+    // services on this page (window.spor.connect()).
     readonly url ?: string,
     // How to open it ({ type: 'iframe' } or { type: 'popup' }), or a frame or
     // window you already have. Defaults to a hidden iframe.

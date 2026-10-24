@@ -1,4 +1,4 @@
-// The errors mycelium throws. Each has a stable `name`, so a caller can tell
+// The errors spor throws. Each has a stable `name`, so a caller can tell
 // them apart even after they cross a window boundary.
 
 import type { DisconnectReason } from './constants';
@@ -38,7 +38,7 @@ type ConnectTimeoutErrorOptions = {
 export class ConnectTimeoutError extends Error {
     constructor({ target, service, timeout } : ConnectTimeoutErrorOptions) {
         super([
-            `No mycelium service "${ service }" answered from ${ target } within ${ timeout }ms.`,
+            `No spor service "${ service }" answered from ${ target } within ${ timeout }ms.`,
             'Likely causes: the page refuses to be framed (X-Frame-Options or a frame-ancestors policy),',
             'the URL is wrong, or the page never called serve() for this service.'
         ].join(' '));

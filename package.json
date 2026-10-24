@@ -1,5 +1,5 @@
 {
-    "name": "mycelium",
+    "name": "spor",
     "version": "0.1.0",
     "description": "Give a page a public client API: serve() functions from a frame or window, connect() from anywhere, with live function references across the boundary.",
     "keywords": [
@@ -13,13 +13,13 @@
         "mcp",
         "cugel"
     ],
-    "homepage": "https://github.com/bluepnume/mycelium#readme",
+    "homepage": "https://github.com/bluepnume/spor#readme",
     "bugs": {
-        "url": "https://github.com/bluepnume/mycelium/issues"
+        "url": "https://github.com/bluepnume/spor/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/bluepnume/mycelium.git"
+        "url": "git+https://github.com/bluepnume/spor.git"
     },
     "license": "MIT",
     "author": "Daniel Brain",

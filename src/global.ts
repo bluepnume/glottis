@@ -1,11 +1,11 @@
-// The one window global mycelium keeps. Every copy of the library on a page
+// The one window global spor keeps. Every copy of the library on a page
 // reads and writes the same object.
 
 import { uniqueID } from 'belter';
 
 import type { ClientRecord, Service, Session } from './model';
 
-const GLOBAL_KEY = '__mycelium_0__';
+const GLOBAL_KEY = '__spor_0__';
 
 type GlobalState = {
     // This page load; a reloaded page announces a new one.
