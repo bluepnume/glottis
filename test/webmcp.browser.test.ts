@@ -204,7 +204,34 @@ describe('arguments', () => {
 });
 
 describe('results', () => {
-    it('sends data as JSON would, with no wrapper', async () => {
+    it('returns MCP\'s tool result, with structured content for an object', async () => {
+        const context = start({
+            exports: {
+                object: tool({ description: 'Object', handler: () => ({ sum: 5 }) }),
+                number: tool({ description: 'Number', handler: () => 5 }),
+                list:   tool({ description: 'List', handler: () => [ 1, 2 ] })
+            }
+        });
+
+        await registered([ 'object', 'number', 'list' ]);
+
+        expect(await context.raw(`object`)).toEqual({ content: [ { type: `text`, text: `{"sum":5}` } ], structuredContent: { sum: 5 } });
+        expect(await context.raw('number')).toEqual({ content: [ { type: 'text', text: '5' } ] });
+        expect(await context.raw('list')).toEqual({ content: [ { type: 'text', text: '[1,2]' } ] });
+    });
+
+    it('reports a thrown error as an error result, message and all', async () => {
+        const context = start({ exports: { add } });
+
+        await registered([ 'add' ]);
+
+        expect(await context.raw('add', { id: 5 })).toEqual({
+            content: [ { type: 'text', text: 'Invalid input: id: Invalid input: expected string, received number' } ],
+            isError: true
+        });
+    });
+
+    it('sends data as JSON would', async () => {
         const when = new Date(0);
 
         const context = start({
@@ -229,7 +256,7 @@ describe('results', () => {
 
         expect(await context.call('nothing')).toBeNull();
         expect(await context.call('plainFunction')).toBeNull();
-        expect(await context.call(`data`)).toEqual({ when, list: [ 1, null, null ], nested: { kept: true, missing: undefined } });
+        expect(await context.call(`data`)).toEqual({ when: when.toJSON(), list: [ 1, null, null ], nested: { kept: true } });
     });
 
     it('fails a call whose result JSON cannot carry', async () => {
@@ -610,5 +637,45 @@ describe('when tools cannot be registered', () => {
 
         expect(context.tools.has('add')).toBe(false);
         expect(errors[0]).toBe('glottis: could not register WebMCP tool "add": Invalid tool name (service "default")');
+    });
+});
+
+describe('the manifest', () => {
+    it('marks tools and gives each the name WebMCP has for it', async () => {
+        const opaque : StandardSchema<string> = {
+            '~standard': { version: 1, vendor: 'test', validate: value => ({ value: String(value) }) }
+        };
+
+        const local = serve({
+            service: 'named',
+            exports: {
+                hello:   () => 'hi',
+                version: '1.0',
+                cart:    { add, reset: tool({ handler: () => 'reset' }) },
+                chosen:  tool({ name: 'pick me', description: 'Chosen', handler: () => 1 }),
+                opaque:  tool({ input: opaque, handler: (value : string) => value }),
+                long:    { [ 'c'.repeat(64) ]: tool({ handler: () => 1 }) },
+                named_x: tool({ handler: () => 1 }),
+                named:   { x: tool({ handler: () => 1 }) }
+            }
+        });
+
+        try {
+            const page = await connect({ service: 'named' });
+            const { functions } = page.manifest;
+
+            expect(functions.hello).toEqual({});
+            expect(functions['cart.reset']).toEqual({ tool: true, name: 'named_cart_reset' });
+            expect(functions[`cart.add`]).toMatchObject({ tool: true, name: `named_cart_add`, description: `Add a product to the cart` });
+            expect(functions.chosen).toMatchObject({ tool: true, name: 'pick_me' });
+            expect(functions.opaque).toEqual({ tool: true });
+            expect(functions[`long.${ 'c'.repeat(64) }`]).toEqual({ tool: true });
+            expect(functions.named_x).toEqual({ tool: true });
+            expect(functions['named.x']).toEqual({ tool: true });
+
+            await page.disconnect();
+        } finally {
+            local.stop();
+        }
     });
 });

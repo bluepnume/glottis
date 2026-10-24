@@ -8,7 +8,7 @@ import type { DisconnectReason } from './constants';
 import { DISCONNECT_REASON } from './constants';
 
 import { DisconnectedError } from './errors';
-import { isPlainObject } from './manifest';
+import { isPlainObject } from './plain';
 
 // Where a connection is, as guarded functions see it.
 type GuardState = {

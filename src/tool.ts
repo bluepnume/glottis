@@ -23,6 +23,9 @@ export type ToolAnnotations = {
 };
 
 export type FunctionMetadata = {
+    // Made with tool(), so offered to agents over WebMCP.
+    readonly tool ?: true,
+    // In the manifest, the tool's WebMCP name; on tool(), the one chosen.
     readonly name ?: string,
     readonly description ?: string,
     readonly input ?: JsonSchema,

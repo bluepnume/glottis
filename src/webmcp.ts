@@ -4,13 +4,14 @@
 // Experimental, like WebMCP itself: this follows the draft as it changes,
 // outside semver.
 
-import { DEFAULT_MAX_BOUND_RESULTS, MAX_TOOL_NAME_LENGTH } from './constants';
+import { DEFAULT_MAX_BOUND_RESULTS } from './constants';
 
 import type { JsonSchema } from './schema';
 import type { ToolAnnotations } from './tool';
 
-import { isPlainObject } from './manifest';
-import { getFunctionMetadata, hasInputSchema, isTool } from './tool';
+import { nameTools, schemaProblem, tooLong, toSegment } from './naming';
+import { isPlainObject } from './plain';
+import { getFunctionMetadata, isTool } from './tool';
 
 // AI agents using this page's tools through WebMCP: the browser's own agent
 // and this page's origin always can; `domain` adds the sites embedding this
@@ -81,8 +82,10 @@ const define = ({ fn, name, description } : DefineOptions) : Definition => {
     const metadata = getFunctionMetadata(fn) ?? {};
     const schema = metadata.input;
 
-    if (!schema && hasInputSchema(fn)) {
-        throw new Error(`its input schema cannot be turned into JSON Schema; pass \`jsonSchema.input\` to tool()`);
+    const problem = schemaProblem(fn);
+
+    if (problem) {
+        throw new Error(problem);
     }
 
     const objectInput = schema === undefined || schema.type === 'object';
@@ -113,9 +116,6 @@ const define = ({ fn, name, description } : DefineOptions) : Definition => {
     };
 };
 
-// Tool names keep to the characters MCP clients accept.
-const toSegment = (part : string) : string => part.replaceAll(/[^\w-]/g, '_');
-
 type Entry = {
     readonly definition : Definition,
     // What an agent sees; an unchanged definition keeps its registration.
@@ -136,6 +136,28 @@ const definitionKey = ({ name, description, inputSchema, annotations } : Definit
 const describeError = (error : unknown) : string => (error instanceof Error
     ? error.message
     : String(error));
+
+// Results take MCP's tool result shape, which WebMCP callers expect: the
+// result as JSON text, and as structured content when it is an object.
+type ToolResult = {
+    readonly content : ReadonlyArray<{ readonly type : 'text', readonly text : string }>,
+    readonly structuredContent ?: Readonly<Record<string, unknown>>,
+    readonly isError ?: true,
+};
+
+const successResult = (value : unknown) : ToolResult => ({
+    content: [ { type: 'text', text: JSON.stringify(value) } ],
+    ...isPlainObject(value)
+        ? { structuredContent: value }
+        : {}
+});
+
+// WebMCP hides a rejected call's message from the caller, so a thrown error
+// is reported in the result, as MCP does, for the agent to read and retry.
+const errorResult = (error : unknown) : ToolResult => ({
+    content: [ { type: 'text', text: describeError(error) } ],
+    isError: true
+});
 
 // Marks where a function was dropped from a result.
 const DROPPED = Symbol('dropped');
@@ -281,8 +303,10 @@ export const createWebMcpClient = ({ service, prefix, options } : CreateWebMcpCl
             ? []
             : [ last ] ].map(toSegment).join('_');
 
-        if (name.length > MAX_TOOL_NAME_LENGTH) {
-            logError(`could not register WebMCP tool "${ name }": names are limited to ${ MAX_TOOL_NAME_LENGTH } characters`);
+        const long = tooLong(name);
+
+        if (long) {
+            logError(`could not register WebMCP tool "${ name }": ${ long }`);
 
             return DROPPED;
         }
@@ -389,6 +413,8 @@ export const createWebMcpClient = ({ service, prefix, options } : CreateWebMcpCl
 
         try {
             value = await entry.call(args);
+        } catch (error) {
+            return errorResult(error);
         } finally {
             if (entry.definition.once) {
                 remove(entry);
@@ -411,7 +437,13 @@ export const createWebMcpClient = ({ service, prefix, options } : CreateWebMcpCl
         };
 
         const pending : Array<Promise<void>> = [];
-        const prepared = prepare({ value, parent, path: [], ancestors: new Set(), group, pending });
+        let prepared : unknown;
+
+        try {
+            prepared = prepare({ value, parent, path: [], ancestors: new Set(), group, pending });
+        } catch (error) {
+            return errorResult(error);
+        }
 
         if (created) {
             groups.add(created.group);
@@ -429,52 +461,9 @@ export const createWebMcpClient = ({ service, prefix, options } : CreateWebMcpCl
         await Promise.all(pending);
 
         // JSON has no `undefined`; a call that returns nothing still succeeded.
-        return prepared === undefined || prepared === DROPPED
+        return successResult(prepared === undefined || prepared === DROPPED
             ? null
-            : prepared;
-    };
-
-    type CollectOptions = {
-        readonly value : unknown,
-        readonly path : ReadonlyArray<string>,
-        readonly into : Array<Definition>,
-    };
-
-    // Every tool() function in the exports, by path.
-    const collect = ({ value, path, into } : CollectOptions) : void => {
-        if (typeof value === 'function') {
-            if (!isTool(value)) {
-                return;
-            }
-
-            const metadata = getFunctionMetadata(value) ?? {};
-
-            const name = metadata.name === undefined
-                ? [ ...prefix === undefined
-                    ? []
-                    : [ prefix ], ...path ].map(toSegment).join('_')
-                : toSegment(metadata.name);
-
-            if (name.length > MAX_TOOL_NAME_LENGTH) {
-                logError(`could not register WebMCP tool "${ name }": names are limited to ${ MAX_TOOL_NAME_LENGTH } characters`);
-
-                return;
-            }
-
-            try {
-                into.push(define({ fn: value as AnyFunction, name, description: metadata.description ?? name }));
-            } catch (error) {
-                logError(`could not register WebMCP tool "${ name }": ${ describeError(error) }`);
-            }
-
-            return;
-        }
-
-        if (isPlainObject(value)) {
-            for (const [ key, child ] of Object.entries(value)) {
-                collect({ value: child, path: [ ...path, key ], into });
-            }
-        }
+            : prepared);
     };
 
     const syncNow = async (build : () => Promise<unknown>) : Promise<void> => {
@@ -498,25 +487,15 @@ export const createWebMcpClient = ({ service, prefix, options } : CreateWebMcpCl
             return;
         }
 
-        const found : Array<Definition> = [];
+        const definitions = new Map<string, Definition>();
 
-        collect({ value: exports, path: [], into: found });
-
-        const counts = new Map<string, number>();
-
-        for (const { name } of found) {
-            counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
-
-        for (const [ name, count ] of counts) {
-            if (count > 1) {
-                logError(`could not register WebMCP tool "${ name }": ${ count } tools have that name, so none of them is registered`);
+        for (const { fn, name, problem } of nameTools({ exports, prefix })) {
+            if (problem) {
+                logError(`could not register WebMCP tool "${ name }": ${ problem }`);
+            } else {
+                definitions.set(name, define({ fn, name, description: getFunctionMetadata(fn)?.description ?? name }));
             }
         }
-
-        const definitions = new Map(found
-            .filter(({ name }) => counts.get(name) === 1)
-            .map(definition => [ definition.name, definition ]));
 
         // Bound tools outlive updates; only the exports' own tools change.
         const current = [ ...entries.values() ];

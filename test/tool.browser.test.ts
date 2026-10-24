@@ -57,7 +57,7 @@ describe('described functions', () => {
     it('leaves out JSON Schema a validator fails to produce', async () => {
         const page = await connect<Described & { readonly broken : (value : unknown) => unknown }>({ url });
 
-        expect(page.manifest.functions.broken).toEqual({});
+        expect(page.manifest.functions.broken).toEqual({ tool: true });
         expect(await page.exports.broken('fine')).toBe('fine');
 
         await page.disconnect();

@@ -1,30 +1,43 @@
 // Walks a page's exports and lists every function by dotted path with its
-// tool() metadata.
+// tool() metadata. Tools are marked, and carry the name WebMCP has for them.
+
+import { DEFAULT_SERVICE } from './constants';
 
 import type { FunctionMetadata } from './tool';
 import type { Manifest } from './types';
 
-import { getFunctionMetadata } from './tool';
-
-export const isPlainObject = (value : unknown) : value is Record<string, unknown> => {
-    if (typeof value !== 'object' || value === null) {
-        return false;
-    }
-
-    const proto : unknown = Object.getPrototypeOf(value);
-
-    return proto === Object.prototype || proto === null;
-};
+import { nameTools } from './naming';
+import { isPlainObject } from './plain';
+import { getFunctionMetadata, isTool } from './tool';
 
 type CollectOptions = {
     readonly value : unknown,
     readonly path : string,
     readonly into : Record<string, FunctionMetadata>,
+    readonly names : ReadonlyMap<string, string | undefined>,
 };
 
-const collect = ({ value, path, into } : CollectOptions) : void => {
+const collect = ({ value, path, into, names } : CollectOptions) : void => {
     if (typeof value === 'function') {
-        into[path] = getFunctionMetadata(value) ?? {};
+        if (!isTool(value)) {
+            into[path] = {};
+
+            return;
+        }
+
+        // The name the page chose gives way to the one WebMCP has.
+        const metadata = Object.fromEntries(Object.entries(getFunctionMetadata(value) ?? {})
+            .filter(([ key ]) => key !== 'name'));
+
+        const name = names.get(path);
+
+        into[path] = {
+            tool: true,
+            ...name === undefined
+                ? {}
+                : { name },
+            ...metadata
+        };
 
         return;
     }
@@ -36,7 +49,8 @@ const collect = ({ value, path, into } : CollectOptions) : void => {
                 path:  path
                     ? `${ path }.${ key }`
                     : key,
-                into
+                into,
+                names
             });
         }
     }
@@ -49,7 +63,16 @@ type BuildManifestOptions = Omit<Manifest, 'functions'> & {
 export const buildManifest = ({ exports, ...rest } : BuildManifestOptions) : Manifest => {
     const functions : Record<string, FunctionMetadata> = {};
 
-    collect({ value: exports, path: '', into: functions });
+    const names = new Map(nameTools({
+        exports,
+        prefix: rest.service === DEFAULT_SERVICE
+            ? undefined
+            : rest.service
+    }).map(({ path, name, problem }) => [ path.join('.'), problem === undefined
+        ? name
+        : undefined ]));
+
+    collect({ value: exports, path: '', into: functions, names });
 
     return { ...rest, functions };
 };

@@ -75,11 +75,13 @@ npm install glottis
 Or, on a page without a bundler, load the script-tag build. It defines `window.glottis`:
 
 ```html
-<script src="https://unpkg.com/glottis/dist/glottis.min.js"></script>
+<script src="https://unpkg.com/glottis@0/dist/glottis.min.js"></script>
 <script>
     window.glottis.serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports: { ping: () => 'pong' } });
 </script>
 ```
+
+`glottis@0` gets every 0.x release, and before 1.0 those can include breaking changes, so check the [changelog](CHANGELOG.md) when something stops working. For a page that must not change under you, pin an exact version, such as `glottis@0.4.0`, and add an `integrity` hash.
 
 glottis supports current versions of Chrome, Edge, Firefox and Safari.
 
@@ -383,7 +385,7 @@ The handler receives the validated value, with defaults applied.
 
 - **Validators that can describe themselves as JSON Schema** (zod 4 can) put that JSON Schema in the manifest automatically.
 - **Other validators** still validate. Pass `jsonSchema: { input, output }` if you want JSON Schema in the manifest too.
-- **Plain JSON Schema objects** are accepted as documentation only; they do not validate.
+- **Plain JSON Schema objects** are accepted as documentation only. **They do not check arguments**: the schema shows up in the manifest and in WebMCP, but your function receives whatever was sent. Use a validator, or check the arguments in your function. Browsers don't check them against the schema either.
 
 ```js
 tool({
@@ -414,10 +416,14 @@ shop.manifest;
 //     service:   'default',
 //     protocol:  1,
 //     functions: {
-//         'cart.add': { description: 'Add a product to the cart', input: { type: 'object', ... } }
+//         'cart.add': { tool: true, name: 'cart_add', description: 'Add a product to the cart', input: { type: 'object', ... } },
+//         'hello':    {}
 //     }
 // }
 ```
+
+- **`tool: true`** marks a function made with `tool()`, even one with no description or schemas. A plain function's entry is `{}`.
+- **`name`** is the name the tool has in [WebMCP](#ai-agents-webmcp): the one you chose with `tool({ name })`, or the one built from its path. It's given even when the page doesn't turn WebMCP on, so a caller building its own list of tools for an agent uses exactly the same names. A tool that can't be registered, for example because two tools share its name, has no `name`.
 
 Give the whole service a description with `serve({ description })`.
 
@@ -626,11 +632,27 @@ exports: {
 
 ### What an agent gets back
 
-Whatever your function returns, as JSON. There's no wrapper: data goes as it is, and an error your function throws fails the call.
+An [MCP tool result](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-result), the shape agents built on MCP already read. Your function's return value goes in as JSON text, and as `structuredContent` too when it's an object:
+
+```js
+getCart: tool({ description: 'The cart', handler: () => ({ items: [ 'red-mug' ] }) })
+// { "content": [ { "type": "text", "text": "{\"items\":[\"red-mug\"]}" } ], "structuredContent": { "items": [ "red-mug" ] } }
+
+count: tool({ description: 'How many items', handler: () => 1 })
+// { "content": [ { "type": "text", "text": "1" } ] }
+```
+
+An error your function throws, including a `ValidationError` for bad arguments, comes back as an error result with its message, so the agent can fix its arguments and try again:
+
+```js
+// { "content": [ { "type": "text", "text": "Invalid input: id: Invalid input: expected string, received number" } ], "isError": true }
+```
+
+That's deliberate. WebMCP hides a rejected call's message from the caller, so that errors can't leak details across origins. Its spec suggests reporting failures in the result instead, which is what MCP does.
 
 - A function that returns nothing gives `null`.
 - Plain functions and promises inside a result are left out of objects, and become `null` in arrays.
-- Values JSON can't hold, like a `BigInt` or an object that contains itself, fail the call.
+- Values JSON can't hold, like a `BigInt` or an object that contains itself, give an error result.
 
 ### Tools that return tools
 
@@ -653,7 +675,7 @@ exports: {
 }
 ```
 
-The agent calls `openCart` and gets back:
+The agent calls `openCart`, and the result's structured content is:
 
 ```json
 { "items": [], "add": { "$tool": "openCart_1_add" }, "buy": { "$tool": "openCart_1_buy" } }
@@ -676,6 +698,20 @@ clients: { webMcp: { allowed: true, domain: [ 'https://chatgpt.com', 'https://cl
 ```
 
 WebMCP only accepts exact origins here, so a pattern, a callback or `'*'` throws.
+
+That's the frame's half. A script on the embedding page sees the tools only when all three of these hold:
+
+1. **Your page lists the embedder** in `domain`, as above.
+2. **The embedder asks for your origin** when it lists tools. A plain `getTools()` leaves tools from other origins out:
+
+   ```js
+   const tools = await document.modelContext.getTools({ fromOrigins: [ 'https://shop.example' ] });
+   const result = await document.modelContext.executeTool(tools[0], { id: 'red-mug' });
+   ```
+
+3. **Every frame in between grants `allow="tools"`**, from the top page down to yours. See [Frames](#frames).
+
+Some hosts don't grant `tools` to the frames they embed. ChatGPT's app frames are one, so WebMCP can't reach a page inside them. A [`remoteWindow`](#who-may-connect) connection can: it works over `postMessage`, needs no permission, and the [manifest](#the-manifest) gives the caller the same tool names and descriptions to show its agent.
 
 ### Different exports for agents
 
@@ -757,7 +793,7 @@ const tools = await document.modelContext.getTools();
 await document.modelContext.executeTool(tools.find(tool => tool.name === 'cart_add'), { id: 'red-mug' });
 ```
 
-One thing to know about Chrome today: when a tool throws, the caller only learns that the call failed, not your error's message.
+Results come back as JSON text: [MCP's tool result](#what-an-agent-gets-back), errors included.
 
 ## TypeScript
 
@@ -893,7 +929,7 @@ Resolves with a connection:
 | --- | --- |
 | `handler` | Required. The function. |
 | `description` | A sentence about what it does. |
-| `input`, `output` | Schemas for the first argument and the result. |
+| `input`, `output` | Schemas for the first argument and the result. A validator checks the argument; plain JSON Schema only describes it. |
 | `jsonSchema` | `{ input?, output? }` JSON Schema for the manifest, for validators that cannot produce it. |
 | `name` | The WebMCP tool name, in place of the one built from its path. |
 | `annotations` | WebMCP hints, such as `{ readOnlyHint: true }`, passed through as they are. |

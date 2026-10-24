@@ -88,11 +88,20 @@ describe('WebMCP in Chrome', () => {
         const add = await listed('chrome_add');
 
         expect(add.description).toBe('Add two numbers');
-        expect(JSON.parse(await run({ name: 'chrome_add', args: { a: 2, b: 3 } }))).toEqual({ sum: 5 });
-        expect(await run({ name: 'chrome_nothing' })).toBe('null');
 
-        // Chrome reports a failed tool without its message.
-        await expect(run({ name: 'chrome_add', args: { a: 'two' } })).rejects.toThrow('invocation failed');
+        expect(JSON.parse(await run({ name: 'chrome_add', args: { a: 2, b: 3 } }))).toEqual({
+            content:           [ { type: 'text', text: '{"sum":5}' } ],
+            structuredContent: { sum: 5 }
+        });
+
+        expect(JSON.parse(await run({ name: `chrome_nothing` }))).toEqual({ content: [ { type: `text`, text: `null` } ] });
+
+        // Chrome hides a rejection's message, so a failure comes back as an
+        // error result the agent can read.
+        expect(JSON.parse(await run({ name: 'chrome_add', args: { a: 'two' } }))).toMatchObject({
+            content: [ { type: 'text', text: expect.stringContaining('Invalid input: a:') as unknown } ],
+            isError: true
+        });
     });
 
     it('registers bound tools and tells agents the list changed', async () => {
@@ -133,8 +142,8 @@ describe('WebMCP in Chrome', () => {
         await listed('bound_open');
         const before = changes;
 
-        expect(JSON.parse(await run({ name: `bound_open` }))).toEqual({ increment: { $tool: `bound_open_1_increment` } });
-        expect(await run({ name: 'bound_open_1_increment' })).toBe('1');
+        expect(JSON.parse(await run({ name: `bound_open` }))).toMatchObject({ structuredContent: { increment: { $tool: `bound_open_1_increment` } } });
+        expect(JSON.parse(await run({ name: `bound_open_1_increment` }))).toEqual({ content: [ { type: `text`, text: `1` } ] });
         expect(changes).toBeGreaterThan(before);
 
         server.stop();

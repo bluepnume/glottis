@@ -21,12 +21,21 @@ type RegisterOptions = {
 export type FakeModelContext = {
     readonly tools : Map<string, FakeTool>,
     readonly names : () => ReadonlyArray<string>,
+    // Runs a tool and reads its MCP-shaped result: the value from its JSON
+    // text, or a thrown error for an error result.
     readonly call : (name : string, args ?: Args) => Promise<unknown>,
+    // Runs a tool and returns its result as the browser gets it.
+    readonly raw : (name : string, args ?: Args) => Promise<unknown>,
     readonly registrations : () => number,
     readonly uninstall : () => void,
 };
 
 type Holder = { modelContext ?: unknown };
+
+type ToolResult = {
+    readonly content : ReadonlyArray<{ readonly text : string }>,
+    readonly isError ?: boolean,
+};
 
 type InstallFakeModelContextOptions = {
     // Every registration is refused, as in a frame without allow="tools".
@@ -79,19 +88,32 @@ export const installFakeModelContext = (options : InstallFakeModelContextOptions
 
     Object.defineProperty(document, 'modelContext', { value: fake, configurable: true });
 
+    const raw = async (name : string, args ?: Args) : Promise<unknown> => {
+        const tool = tools.get(name);
+
+        if (!tool) {
+            throw new Error(`No tool named ${ name }`);
+        }
+
+        return await tool.execute(args ?? {});
+    };
+
     return {
         tools,
         names:         () => [ ...tools.keys() ].toSorted(),
         registrations: () => registrations,
 
-        call: async (name, args) => {
-            const tool = tools.get(name);
+        raw,
 
-            if (!tool) {
-                throw new Error(`No tool named ${ name }`);
+        call: async (name, args) => {
+            const result = await raw(name, args) as ToolResult;
+            const text = result.content[0]?.text ?? '';
+
+            if (result.isError) {
+                throw new Error(text);
             }
 
-            return await tool.execute(args ?? {});
+            return JSON.parse(text) as unknown;
         },
 
         uninstall: () => {

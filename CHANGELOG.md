@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0 (2026-10-24)
+
+### Breaking
+
+* WebMCP tool results take MCP's tool result shape, `{ content: [{ type: 'text', text }], structuredContent? }`, with `structuredContent` when the result is an object. A thrown error, a `ValidationError` included, resolves as `{ content: [{ type: 'text', text: message }], isError: true }` instead of rejecting: WebMCP hides a rejection's message from the caller, so agents could not see what went wrong
+* a tool's manifest `name` is now always its WebMCP name, the chosen one or the one built from its path, and is left out for a tool that cannot be registered
+
+### Features
+
+* the manifest marks every function made with `tool()` with `tool: true`
+
+### Docs
+
+* the script tag loads `glottis@0`
+* plain JSON Schema as `input` describes arguments without checking them
+* an embedding page lists a frame's tools with `getTools({ fromOrigins })`, and every frame in between needs `allow="tools"`; ChatGPT's app frames don't grant it
+
 ## 0.3.0 (2026-10-24)
 
 ### Breaking
