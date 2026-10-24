@@ -62,6 +62,7 @@ That is the whole idea. Everything below builds on these two calls, one step at 
 - [Callers on the same page](#callers-on-the-same-page)
 - [TypeScript](#typescript)
 - [Deploying a serving page](#deploying-a-serving-page)
+- [Compared with other libraries](#compared-with-other-libraries)
 - [API reference](#api-reference)
 - [How it works](#how-it-works)
 
@@ -556,6 +557,33 @@ It helps callers if your exports say which state they got, for example a `signed
 ### Popups and Cross-Origin-Opener-Policy
 
 If either page sends `Cross-Origin-Opener-Policy: same-origin`, the browser cuts the link between a popup and its opener, and they cannot talk at all. Pages used through popups need to allow it, for example with `same-origin-allow-popups` on the opener.
+
+## Compared with other libraries
+
+Plenty of libraries help windows talk to each other. Here is how spor relates to the ones you are most likely to be weighing it against.
+
+**[zoid](https://github.com/bluepnume/zoid)** renders cross-domain components. Both sides load a shared component definition, and zoid handles the iframe or popup, its size, a prerender, props and the component's lifecycle. Use zoid when what you are embedding is a component. Use spor when what you want from the other page is an API: there is no definition to publish, the caller discovers what the page exports, and the page can run hidden. The two fit together, since a zoid component's exports can be built on spor.
+
+**[post-robot](https://github.com/bluepnume/post-robot)** is the messaging layer spor runs on. It sends named messages between windows and passes functions by reference. Use it directly if you want raw messages. Use spor when you want the parts around them: opening the frame or popup, the handshake, the manifest, props, reconnecting after navigation, and validation.
+
+**[Penpal](https://github.com/Aaronius/penpal)** is the closest in spirit: a handshake, then a proxy of the methods the other side offers. You create and manage the iframe yourself, arguments and results are copied as data so you cannot pass a callback, and there is no list of what the other side offers until a call fails. spor opens the frame for you, passes functions both ways, and tells you what is exported up front.
+
+**[Comlink](https://github.com/GoogleChromeLabs/comlink)** makes a worker or another window look like a local object. It is excellent for Web Workers. Functions only cross when you wrap them with `Comlink.proxy()`, and references stay alive until you release them by hand. It has no handshake for frames, does not open them, and has no origin policy of its own. spor is built for pages on other origins, passes every function by reference without wrapping, and releases references when they are collected.
+
+**[Postmate](https://github.com/dollarshaveclub/postmate)** connects a parent to a child iframe and lets the parent read values and call methods. It cannot pass functions, and it has not had a release in years.
+
+**[Cap'n Web](https://github.com/cloudflare/capnweb)** is Cloudflare's object-capability RPC. It goes further than spor in some ways: promise pipelining sends a chain of dependent calls in one round trip, and it runs over HTTP and WebSockets as well as `postMessage`. It is built for those transports, and asks you to dispose of every reference explicitly. It does not open frames, discover services, or check origins for you. spor keeps a simpler model, where data is copied and functions are live, and does the frame handling for you.
+
+**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/webmcp), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. spor is for code calling code, where callbacks and live objects matter. Projecting spor's described exports as WebMCP tools is on the roadmap.
+
+**Plain `postMessage`** is what all of these wrap. It is enough for a message or two. spor is worth it once you would otherwise be writing request ids, origin checks, timeouts and callback plumbing yourself.
+
+### When to use spor
+
+- **You want an API from another page, not a component.** A site offers functions, and other sites call them, with no definition for both sides to share.
+- **You want callbacks and live objects across origins.** Pass `onChange` handlers, return a cart and call its methods.
+- **Callers should discover what is available.** Every connection carries a manifest of the page's functions, with descriptions and schemas.
+- **The page should look after itself.** Who may connect, what props it accepts, and which arguments are valid all live on the serving page.
 
 ## API reference
 
