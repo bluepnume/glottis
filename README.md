@@ -233,6 +233,43 @@ A caller that is refused gets a `DomainError` from `connect()`.
 
 The caller checks the other direction automatically. When you connect by `url`, glottis only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
 
+### Asking the user first
+
+`domain` decides which sites may connect. To also ask the user before a site gets in, make `exports` an async function and wait for their answer there. The caller is not answered until it returns:
+
+```js
+serve({
+    domain:  '*',
+    exports: async ({ origin }) => {
+        // Your own dialog, shown inside this page.
+        const allowed = await askUser(`Let ${ origin } see your recently viewed items?`);
+
+        if (!allowed) {
+            throw new Error('The user declined');
+        }
+
+        return { getRecentlyViewed };
+    }
+});
+```
+
+If the user agrees, `connect()` resolves with the exports. If they decline, `connect()` rejects with your error, message and all:
+
+```js
+try {
+    const shop = await connect({ url, target: { type: 'popup' }, timeout: 0 });
+} catch (err) {
+    err.message;   // 'The user declined'
+}
+```
+
+A few things to get right:
+
+- **The user has to be able to see the question.** The default hidden iframe cannot show a dialog, so a page that asks needs callers to connect with a visible iframe (`target: { type: 'iframe', container }`) or a popup. Say so in your docs.
+- **The caller should allow time for an answer.** `connect()` gives up after 10 seconds by default, which a person deciding can easily exceed. Callers of a page that asks should pass a longer `timeout`, or `0` to wait for as long as it takes.
+- **Remember the answer.** Store the user's choice per origin, for example in `localStorage`, and skip the question next time, so returning callers connect at once.
+- **Ask per connection, not per page.** The function runs for every connection, so each new caller is asked, and a caller the user allowed does not open the door for anyone else.
+
 ## Props
 
 The caller can pass data and functions to the page with `props`, and change them later:
