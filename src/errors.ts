@@ -80,6 +80,24 @@ export class ValidationError extends Error {
     }
 }
 
+const CLIENT_DESCRIPTIONS : Readonly<Record<string, string>> = {
+    remoteWindow: 'other windows',
+    localWindow:  'scripts on this page'
+};
+
+type ClientNotAllowedErrorOptions = {
+    readonly service : string,
+    readonly client : string,
+};
+
+// The service does not accept this kind of client at all.
+export class ClientNotAllowedError extends Error {
+    constructor({ service, client } : ClientNotAllowedErrorOptions) {
+        super(`Service "${ service }" does not accept connections from ${ CLIENT_DESCRIPTIONS[client] ?? client }`);
+        this.name = 'ClientNotAllowedError';
+    }
+}
+
 // The page refused the caller's origin.
 export class DomainError extends Error {
     constructor(origin : string) {

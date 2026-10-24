@@ -4,7 +4,7 @@
 
 import type { Cancelable, ProxyWindow } from 'post-robot';
 
-import { noop } from 'belter';
+import { assertExists, noop } from 'belter';
 import { getOpener, onCloseWindow } from 'cross-domain-utils';
 import { on, send, toProxyWindow, WILDCARD } from 'post-robot';
 
@@ -20,7 +20,7 @@ import type { CallerLink, ExportsPayload, OpenSessionOptions, Props, Service, Se
 import type { Schema } from './schema';
 
 import { matchesDomain } from './domain';
-import { DomainError } from './errors';
+import { ClientNotAllowedError, DomainError } from './errors';
 import { getGlobalState } from './global';
 import { buildManifest } from './manifest';
 import { installPageGlobal } from './page-global';
@@ -45,10 +45,30 @@ type ConnectionInfo = {
     readonly window : ProxyWindow,
 };
 
-export type ServeOptions<Exports, P = Props> = {
+// Other windows: frames, popups, openers and ancestors.
+export type RemoteWindowClients = {
+    readonly allowed : boolean,
     // Which origins may connect: a string ('*' for any), a RegExp, a list of
-    // either, or a callback. Required: making a page public is deliberate.
-    readonly domain : DomainMatcher,
+    // either, or a callback. Required when allowed.
+    readonly domain ?: DomainMatcher,
+};
+
+// Scripts in this same page: window.glottis.connect(), or an imported
+// connect() with no target.
+export type LocalWindowClients = {
+    readonly allowed : boolean,
+};
+
+// Which kinds of client may connect. Remote windows are off until you allow
+// them with a domain; scripts on the same page are on. Kinds added later
+// will be off until allowed.
+export type ServeClients = {
+    readonly remoteWindow ?: RemoteWindowClients,
+    readonly localWindow ?: LocalWindowClients,
+};
+
+export type ServeOptions<Exports, P = Props> = {
+    readonly clients ?: ServeClients,
     // What this page offers: functions at any depth inside plain objects,
     // plus constants; or a function building them for each connection.
     readonly exports : Exports | ((context : ExportsContext<P>) => Exports | Promise<Exports>),
@@ -69,7 +89,13 @@ export type Server<Exports> = {
     readonly updateExports : (exports ?: Exports) => Promise<void>,
 };
 
+type ResolvedClients = {
+    readonly remoteWindow : RemoteWindowClients,
+    readonly localWindow : LocalWindowClients,
+};
+
 type ServiceState<Exports, P> = {
+    readonly clients : ResolvedClients,
     readonly options : ServeOptions<Exports, P>,
     readonly name : string,
     exports : ServeOptions<Exports, P>['exports'],
@@ -95,11 +121,16 @@ type CreateSessionOptions<Exports, P> = OpenSessionOptions & {
 };
 
 const createSession = async <Exports, P>(
-    { state, id, origin, window: win, props, link, checkDomain } : CreateSessionOptions<Exports, P>
+    { state, id, origin, window: win, props, link, client } : CreateSessionOptions<Exports, P>
 ) : Promise<Session> => {
-    const { options, name } = state;
+    const { options, name, clients } = state;
+    const allowed = clients[client];
 
-    if (checkDomain && !await matchesDomain({ domain: options.domain, origin })) {
+    if (!allowed.allowed) {
+        throw new ClientNotAllowedError({ service: name, client });
+    }
+
+    if (client === `remoteWindow` && !await matchesDomain({ domain: assertExists(clients.remoteWindow.domain, `domain`), origin })) {
         throw new DomainError(origin);
     }
 
@@ -308,12 +339,12 @@ const listenAsPage = () : void => {
         }
 
         const session = await service.open({
-            id:          connectionId,
+            id:     connectionId,
             origin,
-            window:      source,
+            window: source,
             props,
-            link:        remoteLink({ win: source, origin, id: connectionId }),
-            checkDomain: true
+            link:   remoteLink({ win: source, origin, id: connectionId }),
+            client: 'remoteWindow'
         });
 
         return { instanceId: state.instanceId, ...session.payload() };
@@ -349,8 +380,17 @@ const listenAsPage = () : void => {
 
 export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : Server<Exports> => {
     // Checked at runtime too, for callers without types.
-    if ((options as { readonly domain ?: unknown }).domain === undefined) {
-        throw new TypeError(`serve() needs a \`domain\`: the origins that may connect, or '*' for any`);
+    if ('domain' in options) {
+        throw new TypeError(`serve() takes \`clients: { remoteWindow: { allowed: true, domain } }\` in place of \`domain\``);
+    }
+
+    const clients : ResolvedClients = {
+        remoteWindow: options.clients?.remoteWindow ?? { allowed: false },
+        localWindow:  options.clients?.localWindow ?? { allowed: true }
+    };
+
+    if (clients.remoteWindow.allowed && clients.remoteWindow.domain === undefined) {
+        throw new TypeError(`serve() needs \`clients.remoteWindow.domain\` to allow other windows: the origins that may connect, or '*' for any`);
     }
 
     const global = getGlobalState();
@@ -360,7 +400,7 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
         throw new Error(`A service named "${ name }" is already being served on this page`);
     }
 
-    const state : ServiceState<Exports, P> = { options, name, exports: options.exports, sessions: new Set() };
+    const state : ServiceState<Exports, P> = { options, clients, name, exports: options.exports, sessions: new Set() };
 
     const service : Service = {
         name,
@@ -369,7 +409,11 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
 
     global.services.set(name, service);
     listenAsPage();
-    installPageGlobal();
+
+    if (clients.localWindow.allowed) {
+        installPageGlobal();
+    }
+
     announce();
 
     return {

@@ -16,7 +16,7 @@ type Scenario = (options : ScenarioOptions) => void;
 
 const basic : Scenario = () => {
     serve({
-        domain:      '*',
+        clients:     { remoteWindow: { allowed: true, domain: '*' } },
         description: 'The basic test API',
         exports:     {
             version: '1.0',
@@ -82,8 +82,8 @@ type FactoryProps = {
 
 const factory : Scenario = () => {
     serve({
-        domain: '*',
-        props:  z.object({ name: z.string(), onEvent: z.function().optional() }),
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
+        props:   z.object({ name: z.string(), onEvent: z.function().optional() }),
 
         exports: ({ origin, props, onProps, getProps, window: caller } : ExportsContext<FactoryProps>) => {
             let count = 0;
@@ -140,7 +140,7 @@ const described : Scenario = () => {
     const shout = (value : string) : string => value.toUpperCase();
 
     serve({
-        domain:  '*',
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
         exports: {
             cart: {
                 add: describeExport.function({
@@ -174,7 +174,7 @@ const updates : Scenario = () => {
     let version = 1;
 
     const server : Server<Readonly<Record<string, unknown>>> = serve<Readonly<Record<string, unknown>>>({
-        domain: '*',
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
 
         exports: () => ({
             version,
@@ -198,25 +198,25 @@ const updates : Scenario = () => {
 };
 
 const restricted : Scenario = () => {
-    serve({ domain: 'https://not-the-caller.example', exports: { secret: () => 'nope' } });
+    serve({ clients: { remoteWindow: { allowed: true, domain: `https://not-the-caller.example` } }, exports: { secret: () => `nope` } });
 };
 
 const callbackDomain : Scenario = ({ parent }) => {
     serve({
-        domain:  ({ origin }) => Promise.resolve(origin === parent),
+        clients: { remoteWindow: { allowed: true, domain: ({ origin }) => Promise.resolve(origin === parent) } },
         exports: { ok: () => 'allowed by callback' }
     });
 };
 
 const services : Scenario = () => {
-    serve({ domain: '*', service: 'cart', exports: { which: () => 'cart' } });
-    serve({ domain: '*', exports: { which: () => 'default' } });
+    serve({ clients: { remoteWindow: { allowed: true, domain: `*` } }, service: `cart`, exports: { which: () => `cart` } });
+    serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports: { which: () => 'default' } });
 
     try {
-        serve({ domain: '*', service: 'cart', exports: {} });
+        serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, service: 'cart', exports: {} });
     } catch (err) {
         serve({
-            domain:  `*`,
+            clients: { remoteWindow: { allowed: true, domain: `*` } },
             service: `duplicate-error`,
             exports: {
                 message: err instanceof Error
@@ -229,7 +229,7 @@ const services : Scenario = () => {
 
 const late : Scenario = () => {
     setTimeout(() => {
-        serve({ domain: '*', exports: { late: () => 'served late' } });
+        serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports: { late: () => 'served late' } });
     }, 300);
 };
 
@@ -240,9 +240,14 @@ const refuseOnReload : Scenario = () => {
     sessionStorage.setItem('glottis-reloaded', 'yes');
 
     serve({
-        domain: reloaded
-            ? 'https://nobody.example'
-            : '*',
+        clients: {
+            remoteWindow: {
+                allowed: true,
+                domain:  reloaded
+                    ? 'https://nobody.example'
+                    : '*'
+            }
+        },
         exports: {
             reload: () => {
                 setTimeout(() => {
@@ -257,7 +262,7 @@ const refuseOnReload : Scenario = () => {
 // when the caller's props say so.
 const askFirst : Scenario = () => {
     serve({
-        domain: '*',
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
 
         exports: async ({ props } : ExportsContext<{ readonly decline ?: boolean }>) => {
             await new Promise(resolve => {
@@ -281,6 +286,20 @@ const askFirst : Scenario = () => {
     });
 };
 
+// Serves only to scripts on its own page: remote windows are off by default.
+const localOnly : Scenario = () => {
+    serve({ exports: { secret: () => 'only for this page' } });
+};
+
+// Serves to other windows but not to scripts on its own page, so it has no
+// window.glottis.
+const remoteOnly : Scenario = () => {
+    serve({
+        clients: { remoteWindow: { allowed: true, domain: '*' }, localWindow: { allowed: false } },
+        exports: { hasGlobal: () => 'glottis' in window }
+    });
+};
+
 const none : Scenario = () => undefined;
 
 const SCENARIOS : Readonly<Record<string, Scenario>> = {
@@ -294,6 +313,8 @@ const SCENARIOS : Readonly<Record<string, Scenario>> = {
     late,
     refuseOnReload,
     askFirst,
+    localOnly,
+    remoteOnly,
     none
 };
 

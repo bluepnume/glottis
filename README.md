@@ -9,7 +9,7 @@ The glottis is the opening your voice comes out of. A page that calls `serve()` 
 import { serve } from 'glottis';
 
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         hello: ({ name }) => {
             // This runs here, inside the child frame showing shop.example,
@@ -34,7 +34,7 @@ Functions can return things too, including things only the frame can see. Here t
 ```js
 // On https://shop.example/api
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         getRecentlyViewed: () => JSON.parse(localStorage.getItem('recentlyViewed') ?? '[]')
     }
@@ -77,7 +77,7 @@ Or, on a page without a bundler, load the script-tag build. It defines `window.g
 ```html
 <script src="https://unpkg.com/glottis/dist/glottis.min.js"></script>
 <script>
-    window.glottis.serve({ domain: '*', exports: { ping: () => 'pong' } });
+    window.glottis.serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports: { ping: () => 'pong' } });
 </script>
 ```
 
@@ -87,11 +87,11 @@ glottis supports current versions of Chrome, Edge, Firefox and Safari.
 
 ### Serving
 
-`serve()` takes the functions your page offers, under `exports`, and the origins allowed to call them, under `domain`:
+`serve()` takes the functions your page offers, under `exports`, and who may call them, under `clients`:
 
 ```js
 serve({
-    domain:  'https://partner.example',
+    clients:  { remoteWindow: { allowed: true, domain: 'https://partner.example' } },
     exports: {
         add: ({ a, b }) => a + b
     }
@@ -102,7 +102,7 @@ Exports can be grouped into plain objects, as deep as you like, and can include 
 
 ```js
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         version: '2.1',
         cart: {
@@ -151,7 +151,7 @@ Because functions travel both ways, you can pass callbacks:
 ```js
 // page
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: { countdown: async ({ from, onTick }) => {
         for (let i = from; i > 0; i--) {
             await onTick(i);
@@ -168,7 +168,7 @@ And you can return objects whose methods stay live, which keeps APIs object-shap
 ```js
 // page
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         cart: () => {
             const items = [];
@@ -219,27 +219,44 @@ You never have to release anything by hand. A function reference is released whe
 
 ## Who may connect
 
-`domain` is required on `serve()`, so making a page public is always a deliberate choice you can see in the code. It takes:
-
-```js
-serve({ domain: 'https://chatgpt.com', exports });                      // one origin
-serve({ domain: [ 'https://a.example', 'https://b.example' ], exports }); // several
-serve({ domain: /^https:\/\/([a-z]+\.)?partner\.example$/, exports });     // a pattern
-serve({ domain: async ({ origin }) => allowlist.includes(origin), exports }); // you decide, sync or async
-serve({ domain: '*', exports });                                        // anyone
-```
-
-A caller that is refused gets a `DomainError` from `connect()`.
-
-The caller checks the other direction automatically. When you connect by `url`, glottis only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
-
-### Asking the user first
-
-`domain` decides which sites may connect. To also ask the user before a site gets in, make `exports` an async function and wait for their answer there. The caller is not answered until it returns:
+`clients` decides which kinds of caller may connect, and from where:
 
 ```js
 serve({
-    domain:  '*',
+    exports,
+    clients: {
+        remoteWindow: { allowed: true, domain: 'https://chatgpt.com' },   // other windows
+        localWindow:  { allowed: true }                                   // scripts on this page
+    }
+});
+```
+
+- **`remoteWindow`** covers other windows: frames, popups, the window that opened this page, and anything further up the frame tree. It is off until you allow it, and allowing it needs a `domain`, so making a page public is always a deliberate choice you can see in the code.
+- **`localWindow`** covers scripts on this same page, see [Callers on the same page](#callers-on-the-same-page). It is on unless you turn it off. A page whose services all turn it off has no `window.glottis`.
+
+Kinds of caller added in future versions will be off until you allow them, so upgrading never exposes a page to callers it did not choose.
+
+`domain` takes:
+
+```js
+domain: 'https://chatgpt.com'                                   // one origin
+domain: [ 'https://a.example', 'https://b.example' ]            // several
+domain: /^https:\/\/([a-z]+\.)?partner\.example$/                // a pattern
+domain: async ({ origin }) => allowlist.includes(origin)        // you decide, sync or async
+domain: '*'                                                     // anyone
+```
+
+A caller whose origin is refused gets a `DomainError` from `connect()`. A kind of caller the service does not allow gets a `ClientNotAllowedError`.
+
+The caller checks the other direction automatically. When you connect by `url`, glottis only talks to a page at that URL's origin. You can widen or replace that check with a `domain` option on `connect()`, which takes the same forms.
+
+### Asking the user first
+
+`clients` decides which sites may connect. To also ask the user before a site gets in, make `exports` an async function and wait for their answer there. The caller is not answered until it returns:
+
+```js
+serve({
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: async ({ origin }) => {
         // Your own dialog, shown inside this page.
         const allowed = await askUser(`Let ${ origin } see your recently viewed items?`);
@@ -291,7 +308,7 @@ The page reads props through the per-connection form of `exports`, described nex
 
 ```js
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: ({ origin, props, onProps, getProps, window }) => {
         let locale = props.locale;
 
@@ -329,7 +346,7 @@ import { z } from 'zod';
 import { describe, serve } from 'glottis';
 
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         cart: {
             add: describe.function({
@@ -399,7 +416,7 @@ Give the whole service a description with `serve({ description })`.
 
 ```js
 serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     props:   z.object({ locale: z.string().default('en-US') }),
     exports: ({ props }) => ({ locale: props.locale })
 });
@@ -415,7 +432,7 @@ Invalid props make `connect()` or `updateProps()` reject with a `ValidationError
 
 ```js
 const server = serve({
-    domain:  '*',
+    clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: () => (user ? { cart, buyNow } : { signIn })
 });
 
@@ -518,8 +535,8 @@ If the new page does not serve within the timeout, the connection ends with `'go
 A page can serve more than one API, each under its own name:
 
 ```js
-serve({ domain: '*', service: 'checkout', exports: checkoutApi });
-serve({ domain: '*', exports: mainApi });   // the 'default' service
+serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, service: 'checkout', exports: checkoutApi });
+serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports: mainApi });   // the 'default' service
 
 await connect({ url, service: 'checkout' });
 ```
@@ -539,6 +556,8 @@ These connections behave exactly like remote ones. Data is copied and functions 
 
 Content scripts in an extension's isolated world cannot see the page's globals, so they cannot use this yet.
 
+To keep a service away from scripts on the page, serve it with `clients: { localWindow: { allowed: false } }`. If no service on the page allows them, `window.glottis` is not installed at all.
+
 ## TypeScript
 
 Pages can publish the type of their exports, and callers can use it:
@@ -549,7 +568,7 @@ import type { ExportsOf } from 'glottis';
 
 const exports = { add: ({ a, b } : { a : number, b : number }) => a + b };
 
-serve({ domain: '*', exports });
+serve({ clients: { remoteWindow: { allowed: true, domain: '*' } }, exports });
 
 export type ShopApi = ExportsOf<typeof exports>;
 ```
@@ -571,7 +590,7 @@ await shop.exports.add({ a: 1, b: 2 });   // Promise<number>
 
 Most sites tell browsers not to let other sites frame them, with `X-Frame-Options` or a `frame-ancestors` Content Security Policy. A page that sends those cannot load in a caller's iframe, and the caller cannot see why: the frame shows an error page, and `connect()` times out.
 
-Serve your API from a small, dedicated page, such as `https://shop.example/api`, that does nothing but call `serve()`, and send a `frame-ancestors` header listing the same origins as your `domain`:
+Serve your API from a small, dedicated page, such as `https://shop.example/api`, that does nothing but call `serve()`, and send a `frame-ancestors` header listing the same origins as your `clients.remoteWindow.domain`:
 
 ```
 Content-Security-Policy: frame-ancestors https://chatgpt.com https://partner.example
@@ -630,7 +649,7 @@ Plenty of libraries help windows talk to each other. Here is how glottis relates
 
 | Option | Type | |
 | --- | --- | --- |
-| `domain` | string, RegExp, array, or `({ origin }) => boolean \| Promise<boolean>` | Required. Who may connect. |
+| `clients` | `{ remoteWindow?: { allowed, domain? }, localWindow?: { allowed } }` | Who may connect. Remote windows are off until allowed with a `domain` (a string, RegExp, array, or `({ origin }) => boolean \| Promise<boolean>`); scripts on the page are on. |
 | `exports` | object, or `(context) => object \| Promise<object>` | Required. What the page offers. |
 | `service` | string | The service name. Defaults to `'default'`. |
 | `description` | string | Describes the service in the manifest. |
@@ -646,7 +665,7 @@ Returns `{ stop(), updateExports(exports?) }`.
 | --- | --- | --- |
 | `url` | string | The page to open. |
 | `target` | `{ type: 'iframe', container?, attributes? }`, `{ type: 'popup', width?, height? }`, an iframe, or a window | Where the page runs. Defaults to a hidden iframe. |
-| `domain` | same as `serve` | The origins the page may be at. Defaults to the URL's origin; required for an existing frame or window. |
+| `domain` | same forms as `clients.remoteWindow.domain` | The origins the page may be at. Defaults to the URL's origin; required for an existing frame or window. |
 | `service` | string | Which service to connect to. Defaults to `'default'`. |
 | `props` | object | Data and functions for the page. |
 | `timeout` | number | Milliseconds to wait for the page to serve. Defaults to `10000`; `0` waits forever. Once the page has served, its answer can take as long as it needs. |
@@ -683,6 +702,7 @@ Resolves with a connection:
 | --- | --- |
 | `ConnectTimeoutError` | `connect()` heard nothing in time. |
 | `DomainError` | The page refused the caller's origin. |
+| `ClientNotAllowedError` | The service does not accept this kind of caller, for example other windows. |
 | `ValidationError` | Arguments or props failed their schema. Its `issues` lists what was wrong. |
 | `DisconnectedError` | A call on an ended connection or a stale reference. Its `reason` says why. |
 

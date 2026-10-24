@@ -57,7 +57,23 @@ describe('who may connect', () => {
         await expect(connect({ url: pageUrl({ scenario: `basic` }), target: frame, domain: `*` })).rejects.toThrow(`not both`);
     });
 
-    it('requires serve() to say who may connect', () => {
-        expect(() => serve({ exports: {} } as unknown as Parameters<typeof serve>[0])).toThrow('needs a `domain`');
+    it('points the old top-level domain at clients', () => {
+        expect(() => serve({ domain: `*`, exports: {} } as unknown as Parameters<typeof serve>[0])).toThrow(`in place of \`domain\``);
+    });
+
+    it('needs a domain to allow other windows', () => {
+        expect(() => serve({ clients: { remoteWindow: { allowed: true } }, exports: {} })).toThrow(`needs \`clients.remoteWindow.domain\``);
+    });
+
+    it('refuses other windows unless the page allows them', async () => {
+        await expect(connect({ url: pageUrl({ scenario: `localOnly` }) })).rejects.toThrow(`does not accept connections from other windows`);
+    });
+
+    it('leaves out window.glottis when no service allows scripts on the page', async () => {
+        const page = await connect<{ readonly hasGlobal : () => boolean }>({ url: pageUrl({ scenario: `remoteOnly` }) });
+
+        expect(await page.exports.hasGlobal()).toBe(false);
+
+        await page.disconnect();
     });
 });

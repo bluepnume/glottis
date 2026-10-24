@@ -18,7 +18,6 @@ type GlottisGlobal = { readonly connect : (options ?: { readonly service ?: stri
 const items = [ 'a', 'b' ];
 
 const server = serve({
-    domain:  '*',
     service: 'local-test',
     props:   z.object({ name: z.string().default('nobody') }),
 
@@ -116,13 +115,25 @@ describe('connecting to a service on this page', () => {
         await page.disconnect();
     });
 
+    it('refuses scripts on the page when the service does not allow them', async () => {
+        const remoteOnly = serve({
+            service: 'remote-only',
+            clients: { remoteWindow: { allowed: true, domain: '*' }, localWindow: { allowed: false } },
+            exports: { ping: () => 'pong' }
+        });
+
+        await expect(connect({ service: `remote-only` })).rejects.toThrow(`does not accept connections from scripts on this page`);
+
+        remoteOnly.stop();
+    });
+
     it('refuses a service this page does not serve', async () => {
         await expect(connect({ service: 'not-here' })).rejects.toThrow('No service "not-here"');
     });
 
     it('ends local connections when the service stops', async () => {
         const reasons : Array<string> = [];
-        const temporary = serve({ domain: '*', service: 'local-stop', exports: { ping: () => 'pong' } });
+        const temporary = serve({ service: 'local-stop', exports: { ping: () => 'pong' } });
         const page = await connect<{ readonly ping : () => string }>({ service: `local-stop`, onDisconnect: ({ reason }) => reasons.push(reason) });
 
         expect(await page.exports.ping()).toBe('pong');
@@ -136,7 +147,7 @@ describe('connecting to a service on this page', () => {
     it('pushes updated exports to local connections', async () => {
         let version = 1;
         const changes : Array<number> = [];
-        const temporary = serve({ domain: '*', service: 'local-update', exports: () => ({ version }) });
+        const temporary = serve({ service: 'local-update', exports: () => ({ version }) });
 
         const page = await connect<{ readonly version : number }>({
             service:         'local-update',

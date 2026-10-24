@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 (2026-10-24)
+
+### Breaking
+
+* `serve({ domain })` is replaced by `serve({ clients })`: `clients.remoteWindow: { allowed, domain }` for other windows, off until allowed, and `clients.localWindow: { allowed }` for scripts on the page, on by default. Move `domain: x` to `clients: { remoteWindow: { allowed: true, domain: x } }`. Passing the old option throws with that hint
+
+### Features
+
+* a service can refuse scripts on its own page, and `window.glottis` is only installed when some service allows them
+* a kind of caller a service does not allow is refused with a `ClientNotAllowedError`
+* kinds of caller added in later versions will be off until allowed
+
 ## 0.1.3 (2026-10-24)
 
 * `connect()`'s timeout stops once the page announces itself, so a page that asks its user before answering is never cut off, on the first connect or on reconnecting after a navigation

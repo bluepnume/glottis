@@ -6,7 +6,7 @@
 <script src="/dist/glottis.min.js"></script>
 <script>
     window.glottis.serve({
-        domain:  '*',
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
         exports: { add: ({ a, b }) => a + b, version: 'bundle' }
     });
 </script>

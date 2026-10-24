@@ -8,6 +8,8 @@ import type { Manifest } from './types';
 
 export type Props = Readonly<Record<string, unknown>>;
 
+type ClientKind = 'remoteWindow' | 'localWindow';
+
 export type ExportsPayload = {
     readonly exports : unknown,
     readonly manifest : Manifest,
@@ -37,9 +39,9 @@ export type OpenSessionOptions = {
     readonly window : Window,
     readonly props : unknown,
     readonly link : CallerLink,
-    // Remote callers are checked against the page's domain; local callers
-    // are scripts in this page already.
-    readonly checkDomain : boolean,
+    // Which kind of client is connecting, so the service can check that
+    // kind is allowed, and check a remote window's origin.
+    readonly client : ClientKind,
 };
 
 export type Service = {

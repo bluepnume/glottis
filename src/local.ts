@@ -56,12 +56,12 @@ export const connectLocal = async <Exports>(options : ConnectLocalOptions<Export
     };
 
     const session = await service.open({
-        id:          uniqueID(),
-        origin:      getDomain(),
+        id:     uniqueID(),
+        origin: getDomain(),
         window,
-        props:       toPage(options.props ?? {}),
+        props:  toPage(options.props ?? {}),
         link,
-        checkDomain: false
+        client: 'localWindow'
     });
 
     const current = () : ExportsPayload => {
