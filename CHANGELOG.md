@@ -18,6 +18,10 @@
   * problems registering a tool are logged with `console.error`; a browser without WebMCP, or a frame without `allow="tools"`, quietly registers nothing
 * `tool({ annotations })` passes WebMCP hints such as `readOnlyHint` and `consequentialHint`, and puts them in the manifest
 
+### Fixes
+
+* a page that reloads and serves again within 50ms of its goodbye no longer reports a second navigation after the reconnect
+
 ## 0.2.0 (2026-10-24)
 
 ### Breaking

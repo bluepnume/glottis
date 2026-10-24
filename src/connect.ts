@@ -287,6 +287,11 @@ const connectRemote = <Exports>(
             }
 
             setTimeout(() => {
+                // The new page may have announced and reconnected already.
+                if (leaving !== instanceId) {
+                    return;
+                }
+
                 if (isWindowClosed(win) || (frame && !frame.isConnected)) {
                     client.end({ reason: DISCONNECT_REASON.CLOSED, notify: false });
                 } else {
