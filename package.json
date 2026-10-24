@@ -1,20 +1,25 @@
 {
-    "name": "cugel-boilerplate",
+    "name": "mycelium",
     "version": "0.1.0",
-    "description": "Starting point for a TypeScript library on cugel-scripts: one exported function, node and browser tests, a tree-shaking check, and the publish workflow. Clone it, rename it, write code.",
+    "description": "Give a page a public client API: serve() functions from a frame or window, connect() from anywhere, with live function references across the boundary.",
     "keywords": [
-        "template",
-        "boilerplate",
-        "typescript",
+        "iframe",
+        "popup",
+        "postmessage",
+        "rpc",
+        "cross-domain",
+        "api",
+        "post-robot",
+        "mcp",
         "cugel"
     ],
-    "homepage": "https://github.com/bluepnume/cugel-boilerplate#readme",
+    "homepage": "https://github.com/bluepnume/mycelium#readme",
     "bugs": {
-        "url": "https://github.com/bluepnume/cugel-boilerplate/issues"
+        "url": "https://github.com/bluepnume/mycelium/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/bluepnume/cugel-boilerplate.git"
+        "url": "git+https://github.com/bluepnume/mycelium.git"
     },
     "license": "MIT",
     "author": "Daniel Brain",
@@ -44,11 +49,23 @@
         "test:static": "cugel-scripts static",
         "test:unit": "cugel-scripts test --coverage",
         "test:watch": "cugel-scripts test --watch",
-        "test": "npm run test:static && npm run test:unit && npm run build",
+        "test": "npm run test:static && npm run build && npm run test:unit",
         "prepack": "npm run build"
     },
     "devDependencies": {
+        "@vitest/coverage-istanbul": "^5.0.5",
         "cugel-scripts": "^0.1.0",
-        "esbuild": "^0.28.0"
+        "esbuild": "^0.28.0",
+        "zod": "^4.6.7"
+    },
+    "main": "./dist/src/index.js",
+    "module": "./dist/src/index.js",
+    "types": "./dist/src/index.d.ts",
+    "dependencies": {
+        "belter": "^3.0.1",
+        "cross-domain-utils": "^4.0.2",
+        "post-robot": "^12.2.0",
+        "sandestin": "^0.5.0",
+        "zalgo-promise": "^3.0.1"
     }
 }
