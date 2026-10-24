@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 (2026-10-24)
+
+* `connect({ target })` connects to a frame whose page loaded before the caller ever used glottis (post-robot 12.2.1 asks the frame for the hello it already sent to nobody)
+
 ## 0.1.1 (2026-10-23)
 
 * published from CI through the npm trusted publisher

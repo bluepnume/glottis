@@ -1,6 +1,6 @@
 {
     "name": "glottis",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Give a page a public client API: serve() functions from a frame or window, connect() from anywhere, with live function references across the boundary.",
     "keywords": [
         "iframe",
@@ -64,7 +64,7 @@
     "dependencies": {
         "belter": "^3.0.1",
         "cross-domain-utils": "^4.0.2",
-        "post-robot": "^12.2.0",
+        "post-robot": "^12.2.1",
         "sandestin": "^0.5.0",
         "zalgo-promise": "^3.0.1"
     }
