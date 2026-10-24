@@ -1,4 +1,6 @@
-# <img src="logo.png" alt="" width="44" align="center"> glottis
+<img src="logo.png" alt="" width="100">
+
+# glottis
 
 Give a web page a public client API. A page calls `serve()` with some functions, and any other page, frame, popup or in-page script calls `connect()` and uses them as if they were local. Functions travel by reference in both directions, so you can pass callbacks and return objects full of live methods.
 
