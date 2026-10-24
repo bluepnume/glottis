@@ -53,3 +53,19 @@ export const DISCONNECT_REASON = {
 } as const;
 
 export type DisconnectReason = typeof DISCONNECT_REASON[keyof typeof DISCONNECT_REASON];
+
+// Which kind of client an exports function is building for.
+export enum CLIENT_TYPE {
+    // Another window: a frame, popup, opener or ancestor.
+    REMOTE_WINDOW = 'remoteWindow',
+    // A script on this same page.
+    LOCAL_WINDOW = 'localWindow',
+    // AI agents, through the browser's WebMCP tool API.
+    WEB_MCP = 'webMcp'
+}
+
+// How many call results keep their bound WebMCP tools at once.
+export const DEFAULT_MAX_BOUND_RESULTS = 20;
+
+// The longest tool name many MCP clients accept.
+export const MAX_TOOL_NAME_LENGTH = 64;

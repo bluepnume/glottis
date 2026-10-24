@@ -1,10 +1,10 @@
 // Walks a page's exports and lists every function by dotted path with its
-// describe.function metadata.
+// tool() metadata.
 
-import type { FunctionMetadata } from './describe';
+import type { FunctionMetadata } from './tool';
 import type { Manifest } from './types';
 
-import { getFunctionMetadata } from './describe';
+import { getFunctionMetadata } from './tool';
 
 export const isPlainObject = (value : unknown) : value is Record<string, unknown> => {
     if (typeof value !== 'object' || value === null) {

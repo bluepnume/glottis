@@ -8,7 +8,7 @@ import { getDomain } from 'cross-domain-utils';
 import { dateType, regExpType } from 'sandestin';
 import { pair } from 'sandestin/testing';
 
-import { DEFAULT_SERVICE, DISCONNECT_REASON } from './constants';
+import { CLIENT_TYPE, DEFAULT_SERVICE, DISCONNECT_REASON } from './constants';
 
 import type { Connection, ConnectionCallbacks } from './client';
 import type { CallerLink, ExportsPayload, Props } from './model';
@@ -61,7 +61,7 @@ export const connectLocal = async <Exports>(options : ConnectLocalOptions<Export
         window,
         props:  toPage(options.props ?? {}),
         link,
-        client: 'localWindow'
+        client: CLIENT_TYPE.LOCAL_WINDOW
     });
 
     const current = () : ExportsPayload => {

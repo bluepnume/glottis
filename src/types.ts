@@ -1,8 +1,8 @@
 // The shapes callers and pages see: what an export looks like from the other
 // side, and the manifest that describes a page's exports.
 
-import type { FunctionMetadata } from './describe';
 import type { JsonSchema } from './schema';
+import type { FunctionMetadata } from './tool';
 
 // A value as it arrives from the other side: functions become async, data is
 // a copy, and the same applies all the way down.
@@ -32,6 +32,6 @@ export type Manifest = {
     readonly description ?: string,
     readonly props ?: JsonSchema,
     // Every function in the exports, by dotted path, with whatever
-    // describe.function recorded for it.
+    // tool() recorded for it.
     readonly functions : Readonly<Record<string, FunctionMetadata>>,
 };

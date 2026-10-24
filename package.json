@@ -1,6 +1,6 @@
 {
     "name": "glottis",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Give a page a public client API: serve() functions from a frame or window, connect() from anywhere, with live function references across the boundary.",
     "keywords": [
         "iframe",
@@ -53,6 +53,7 @@
         "prepack": "npm run build"
     },
     "devDependencies": {
+        "@vitest/browser-playwright": "^5.0.5",
         "@vitest/coverage-istanbul": "^5.0.5",
         "cugel-scripts": "^0.1.0",
         "esbuild": "^0.28.0",

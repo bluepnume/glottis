@@ -11,13 +11,14 @@ import { on, send, toProxyWindow, WILDCARD } from 'post-robot';
 import type { DisconnectReason } from './constants';
 
 import {
-    CLOSE_POLL_INTERVAL, DEFAULT_SERVICE, DISCONNECT_REASON, GOODBYE_KEY, MESSAGE,
-    PROTOCOL_VERSION
+    CLIENT_TYPE, CLOSE_POLL_INTERVAL, DEFAULT_SERVICE, DISCONNECT_REASON, GOODBYE_KEY,
+    MESSAGE, PROTOCOL_VERSION
 } from './constants';
 
 import type { DomainMatcher } from './domain';
 import type { CallerLink, ExportsPayload, OpenSessionOptions, Props, Service, Session } from './model';
 import type { Schema } from './schema';
+import type { WebMcpClients } from './webmcp';
 
 import { matchesDomain } from './domain';
 import { ClientNotAllowedError, DomainError } from './errors';
@@ -25,14 +26,32 @@ import { getGlobalState } from './global';
 import { buildManifest } from './manifest';
 import { installPageGlobal } from './page-global';
 import { toJsonSchema, validate } from './schema';
+import { createWebMcpClient } from './webmcp';
 
-// What the per-connection exports function receives.
-export type ExportsContext<P = Props> = {
+export type { WebMcpClients } from './webmcp';
+
+// Who the exports are being built for, by `type`.
+export type ExportsClient = {
+    readonly type : CLIENT_TYPE.REMOTE_WINDOW,
     // The caller's origin.
     readonly origin : string,
     // The caller's window, as a value you can message or pass on.
     readonly window : ProxyWindow,
-    // The caller's props, validated against `props` when given.
+} | {
+    readonly type : CLIENT_TYPE.LOCAL_WINDOW,
+    // This page's own origin and window.
+    readonly origin : string,
+    readonly window : ProxyWindow,
+} | {
+    // AI agents through WebMCP: built once, with no caller and no props.
+    readonly type : CLIENT_TYPE.WEB_MCP,
+};
+
+// What the per-connection exports function receives.
+export type ExportsContext<P = Props> = {
+    readonly client : ExportsClient,
+    // The caller's props, validated against `props` when given. Empty for
+    // WebMCP.
     readonly props : P,
     // Called with the merged props after every updateProps from the caller.
     readonly onProps : (handler : (props : P) => void) => Cancelable,
@@ -60,11 +79,13 @@ export type LocalWindowClients = {
 };
 
 // Which kinds of client may connect. Remote windows are off until you allow
-// them with a domain; scripts on the same page are on. Kinds added later
-// will be off until allowed.
+// them with a domain; scripts on the same page are on; WebMCP is off. Kinds
+// added later will be off until allowed.
 export type ServeClients = {
     readonly remoteWindow ?: RemoteWindowClients,
     readonly localWindow ?: LocalWindowClients,
+    // Experimental, outside semver while WebMCP is a draft.
+    readonly webMcp ?: WebMcpClients,
 };
 
 export type ServeOptions<Exports, P = Props> = {
@@ -102,6 +123,21 @@ type ServiceState<Exports, P> = {
     readonly sessions : Set<Session>,
 };
 
+// WebMCP's exposedTo takes exact origins only.
+const assertExactOrigins = (domain : unknown) : void => {
+    const origins : ReadonlyArray<unknown> = Array.isArray(domain)
+        ? domain
+        : [ domain ];
+
+    for (const origin of origins) {
+        const exact = typeof origin === 'string' && URL.canParse(origin) && new URL(origin).origin === origin;
+
+        if (!exact) {
+            throw new TypeError(`\`clients.webMcp.domain\` takes exact origins, like 'https://chatgpt.com': WebMCP cannot match patterns, callbacks or '*' (got ${ String(origin) })`);
+        }
+    }
+};
+
 const isFunctionExports = <Exports, P>(
     exports : ServeOptions<Exports, P>['exports']
 ) : exports is (context : ExportsContext<P>) => Exports | Promise<Exports> => typeof exports === 'function';
@@ -130,7 +166,7 @@ const createSession = async <Exports, P>(
         throw new ClientNotAllowedError({ service: name, client });
     }
 
-    if (client === `remoteWindow` && !await matchesDomain({ domain: assertExists(clients.remoteWindow.domain, `domain`), origin })) {
+    if (client === CLIENT_TYPE.REMOTE_WINDOW && !await matchesDomain({ domain: assertExists(clients.remoteWindow.domain, `domain`), origin })) {
         throw new DomainError(origin);
     }
 
@@ -139,8 +175,7 @@ const createSession = async <Exports, P>(
     const proxyWin = toProxyWindow(win);
 
     const context : ExportsContext<P> = {
-        origin,
-        window: proxyWin,
+        client: { type: client, origin, window: proxyWin },
 
         get props() {
             return current;
@@ -344,7 +379,7 @@ const listenAsPage = () : void => {
             window: source,
             props,
             link:   remoteLink({ win: source, origin, id: connectionId }),
-            client: 'remoteWindow'
+            client: CLIENT_TYPE.REMOTE_WINDOW
         });
 
         return { instanceId: state.instanceId, ...session.payload() };
@@ -393,6 +428,12 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
         throw new TypeError(`serve() needs \`clients.remoteWindow.domain\` to allow other windows: the origins that may connect, or '*' for any`);
     }
 
+    const webMcpOptions = options.clients?.webMcp;
+
+    if (webMcpOptions?.allowed && webMcpOptions.domain !== undefined) {
+        assertExactOrigins(webMcpOptions.domain);
+    }
+
     const global = getGlobalState();
     const name = options.service ?? DEFAULT_SERVICE;
 
@@ -416,6 +457,31 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
 
     announce();
 
+    const webMcp = webMcpOptions?.allowed
+        ? createWebMcpClient({
+            service: name,
+            prefix:  name === DEFAULT_SERVICE
+                ? undefined
+                : name,
+            options: webMcpOptions
+        })
+        : undefined;
+
+    // There is no caller for WebMCP, so the exports function runs once,
+    // with no props.
+    const webMcpContext : ExportsContext<P> = {
+        client:   { type: CLIENT_TYPE.WEB_MCP },
+        props:    {} as P,
+        onProps:  () => ({ cancel: noop }),
+        getProps: () => Promise.resolve({} as P)
+    };
+
+    const buildWebMcpExports = () : Promise<unknown> => Promise.resolve(isFunctionExports(state.exports)
+        ? state.exports(webMcpContext)
+        : state.exports);
+
+    void webMcp?.sync(buildWebMcpExports);
+
     return {
         stop: () => {
             for (const session of state.sessions) {
@@ -423,6 +489,7 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
             }
 
             global.services.delete(name);
+            webMcp?.stop();
         },
 
         updateExports: async exports => {
@@ -430,7 +497,10 @@ export const serve = <Exports, P = Props>(options : ServeOptions<Exports, P>) : 
                 state.exports = exports;
             }
 
-            await Promise.all([ ...state.sessions ].map(session => session.rebuild()));
+            await Promise.all([
+                ...[ ...state.sessions ].map(session => session.rebuild()),
+                webMcp?.sync(buildWebMcpExports)
+            ]);
         }
     };
 };

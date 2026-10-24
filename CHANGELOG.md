@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 (2026-10-24)
+
+### Breaking
+
+* the exports function receives `{ client, props, onProps, getProps }`: the caller's `origin` and `window` move into `client`, next to `client.type`, a `CLIENT_TYPE` (`REMOTE_WINDOW`, `LOCAL_WINDOW` or `WEB_MCP`). Change `({ origin }) => ...` to `({ client }) => ... client.origin ...`
+* `describe.function()` is now `tool()`. The old name still works in this release, and goes in the next
+
+### Features
+
+* experimental: `clients.webMcp` offers a service's `tool()` functions to AI agents through WebMCP (`document.modelContext`), outside semver while WebMCP is a draft
+  * tool names from the export path (`cart_add`), prefixed for a named service, or `tool({ name })`
+  * `domain` exposes tools to embedding sites through WebMCP's `exposedTo`, exact origins only
+  * the exports function runs once for WebMCP, with `client.type` set to `CLIENT_TYPE.WEB_MCP` and no props
+  * `tool()` functions inside a result become bound tools (`openCart_1_add`), marked in place as `{ "$tool": name }`, kept for the 20 most recently used results (`maxBoundResults`)
+  * `updateExports()` only re-registers the tools that changed, and `stop()` removes them all
+  * problems registering a tool are logged with `console.error`; a browser without WebMCP, or a frame without `allow="tools"`, quietly registers nothing
+* `tool({ annotations })` passes WebMCP hints such as `readOnlyHint` and `consequentialHint`, and puts them in the manifest
+
 ## 0.2.0 (2026-10-24)
 
 ### Breaking

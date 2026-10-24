@@ -2,13 +2,13 @@
 // window global so two copies of glottis on a page see the same services
 // and connections.
 
-import type { DisconnectReason } from './constants';
+import type { CLIENT_TYPE, DisconnectReason } from './constants';
 
 import type { Manifest } from './types';
 
 export type Props = Readonly<Record<string, unknown>>;
 
-type ClientKind = 'remoteWindow' | 'localWindow';
+type ClientKind = CLIENT_TYPE.REMOTE_WINDOW | CLIENT_TYPE.LOCAL_WINDOW;
 
 export type ExportsPayload = {
     readonly exports : unknown,

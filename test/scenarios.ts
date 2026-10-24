@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import type { ExportsContext, Server } from '../src';
 
-import { describe as describeExport, serve } from '../src';
+import { CLIENT_TYPE, connect, serve, tool } from '../src';
 
 type ScenarioOptions = {
     // The test page's origin, for scenarios that restrict who may connect.
@@ -85,7 +85,12 @@ const factory : Scenario = () => {
         clients: { remoteWindow: { allowed: true, domain: '*' } },
         props:   z.object({ name: z.string(), onEvent: z.function().optional() }),
 
-        exports: ({ origin, props, onProps, getProps, window: caller } : ExportsContext<FactoryProps>) => {
+        exports: ({ client, props, onProps, getProps } : ExportsContext<FactoryProps>) => {
+            if (client.type === CLIENT_TYPE.WEB_MCP) {
+                throw new Error('This scenario serves windows only');
+            }
+
+            const { origin, window: caller } = client;
             let count = 0;
             let latest = props;
 
@@ -143,25 +148,25 @@ const described : Scenario = () => {
         clients: { remoteWindow: { allowed: true, domain: '*' } },
         exports: {
             cart: {
-                add: describeExport.function({
+                add: tool({
                     handler:     ({ id, quantity } : { readonly id : string, readonly quantity : number }) => `${ id } x${ quantity }`,
                     description: 'Add a product to the cart',
                     input:       z.object({ id: z.string(), quantity: z.number().int().min(1).default(1) }),
                     output:      z.string()
                 })
             },
-            plain: describeExport.function({
+            plain: tool({
                 handler:     ({ id } : { readonly id : unknown }) => id,
                 description: 'Takes anything; the schema is metadata only',
                 input:       { type: 'object', properties: { id: { type: 'string' } } }
             }),
-            broken: describeExport.function({ handler: (value : unknown) => value, input: brokenSchema }),
-            custom: describeExport.function({
+            broken: tool({ handler: (value : unknown) => value, input: brokenSchema }),
+            custom: tool({
                 handler:    shout,
                 input:      customSchema,
                 jsonSchema: { input: { type: 'string' } }
             }),
-            confirm: describeExport.function({
+            confirm: tool({
                 handler: () => 'confirmed',
                 once:    true
             }),
@@ -302,6 +307,72 @@ const remoteOnly : Scenario = () => {
 
 const none : Scenario = () => undefined;
 
+type ToolRegistry = {
+    registerTool : (tool : { readonly name : string }, options ?: unknown) => Promise<void>,
+};
+
+// Offers a tool to agents, and tells the test page what this frame logged
+// and which tools the browser accepted from it.
+const webMcp : Scenario = () => {
+    const logged : Array<string> = [];
+    const accepted : Array<string> = [];
+    // eslint-disable-next-line no-console -- the test reads what this frame logs
+    const original = console.error;
+
+    // eslint-disable-next-line no-console -- the test reads what this frame logs
+    console.error = (...args : ReadonlyArray<unknown>) => {
+        logged.push(args.map(String).join(' '));
+        original(...args);
+    };
+
+    const registry = (document as unknown as { readonly modelContext ?: ToolRegistry }).modelContext;
+
+    if (registry) {
+        const register = registry.registerTool.bind(registry);
+
+        registry.registerTool = async (definition, options) => {
+            await register(definition, options);
+            accepted.push(definition.name);
+        };
+    }
+
+    serve({
+        clients: { remoteWindow: { allowed: true, domain: '*' }, webMcp: { allowed: true } },
+
+        exports: ({ client }) => (client.type === CLIENT_TYPE.WEB_MCP
+            ? { greet: tool({ description: 'Greet', handler: () => 'hello from the frame' }) }
+            : { logged: () => logged, tools: () => accepted })
+    });
+};
+
+type WebMcpFrame = { readonly logged : () => ReadonlyArray<string>, readonly tools : () => ReadonlyArray<string> };
+
+// A top-level page framing the webMcp scenario from another origin, once
+// with allow="tools" and once without. Only a top-level page can delegate
+// the permission: the test page is itself a frame.
+const webMcpHost : Scenario = ({ parent }) => {
+    const url = `${ parent }/test/pages/serve.html?scenario=webMcp&parent=${ encodeURIComponent(location.origin) }`;
+    const granted = connect<WebMcpFrame>({ url, target: { type: 'iframe', attributes: { allow: 'tools' } } });
+    const refused = connect<WebMcpFrame>({ url, target: { type: 'iframe' } });
+
+    serve({
+        clients: { remoteWindow: { allowed: true, domain: '*' } },
+        exports: {
+            granted: async () => {
+                const { exports } = await granted;
+
+                return { tools: await exports.tools(), logged: await exports.logged() };
+            },
+
+            refused: async () => {
+                const { exports } = await refused;
+
+                return { tools: await exports.tools(), logged: await exports.logged() };
+            }
+        }
+    });
+};
+
 const SCENARIOS : Readonly<Record<string, Scenario>> = {
     basic,
     factory,
@@ -315,6 +386,8 @@ const SCENARIOS : Readonly<Record<string, Scenario>> = {
     askFirst,
     localOnly,
     remoteOnly,
+    webMcp,
+    webMcpHost,
     none
 };
 

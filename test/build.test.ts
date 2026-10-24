@@ -11,8 +11,9 @@ const gzip = promisify(gzipCallback);
 const root = path.resolve(import.meta.dirname, '..');
 
 // The size budget for the script-tag bundle, post-robot and its
-// dependencies included (about 40.5 KB of the total on their own).
-const BUDGET = { raw: 60 * 1024, gzip: 20 * 1024 };
+// dependencies included (about 40.5 KB of the total on their own), and the
+// WebMCP client (about 5 KB).
+const BUDGET = { raw: 66 * 1024, gzip: 23 * 1024 };
 
 describe('the build', () => {
     it('lets a page that only serves leave the connect side out', async () => {

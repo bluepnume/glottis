@@ -226,13 +226,15 @@ serve({
     exports,
     clients: {
         remoteWindow: { allowed: true, domain: 'https://chatgpt.com' },   // other windows
-        localWindow:  { allowed: true }                                   // scripts on this page
+        localWindow:  { allowed: true },                                  // scripts on this page
+        webMcp:       { allowed: true }                                   // AI agents
     }
 });
 ```
 
 - **`remoteWindow`** covers other windows: frames, popups, the window that opened this page, and anything further up the frame tree. It is off until you allow it, and allowing it needs a `domain`, so making a page public is always a deliberate choice you can see in the code.
 - **`localWindow`** covers scripts on this same page, see [Callers on the same page](#callers-on-the-same-page). It is on unless you turn it off. A page whose services all turn it off has no `window.glottis`.
+- **`webMcp`** covers AI agents, through the browser's WebMCP API, see [AI agents](#ai-agents-webmcp). It is off until you allow it.
 
 Kinds of caller added in future versions will be off until you allow them, so upgrading never exposes a page to callers it did not choose.
 
@@ -257,9 +259,9 @@ The caller checks the other direction automatically. When you connect by `url`, 
 ```js
 serve({
     clients:  { remoteWindow: { allowed: true, domain: '*' } },
-    exports: async ({ origin }) => {
+    exports: async ({ client }) => {
         // Your own dialog, shown inside this page.
-        const allowed = await askUser(`Let ${ origin } see your recently viewed items?`);
+        const allowed = await askUser(`Let ${ client.origin } see your recently viewed items?`);
 
         if (!allowed) {
             throw new Error('The user declined');
@@ -309,7 +311,7 @@ The page reads props through the per-connection form of `exports`, described nex
 ```js
 serve({
     clients:  { remoteWindow: { allowed: true, domain: '*' } },
-    exports: ({ origin, props, onProps, getProps, window }) => {
+    exports: ({ client, props, onProps }) => {
         let locale = props.locale;
 
         onProps(next => {
@@ -319,7 +321,7 @@ serve({
         return {
             greet: () => greeting(locale),
             // only partners even see this export
-            ...origin === 'https://partner.example' ? { refund } : {}
+            ...client.origin === 'https://partner.example' ? { refund } : {}
         };
     }
 });
@@ -329,27 +331,34 @@ The function can be async, to wait for something before the caller is answered. 
 
 | Field | What it is |
 | --- | --- |
-| `origin` | The caller's origin. |
-| `window` | The caller's window, as a `ProxyWindow`. |
+| `client` | Who is connecting. `client.type` is a `CLIENT_TYPE`: `REMOTE_WINDOW` and `LOCAL_WINDOW` come with the caller's `origin` and its `window` (a `ProxyWindow`); `WEB_MCP` is the run for [AI agents](#ai-agents-webmcp), with neither. |
 | `props` | The caller's props, validated if you gave a [`props` schema](#a-props-schema). |
 | `onProps(handler)` | Calls `handler` with the merged props after every `updateProps`. Returns `{ cancel }`. |
 | `getProps()` | Asks the caller for its latest props. |
 
 Every connection gets its own run of this function, so each caller has its own state, even when the same caller connects twice.
 
+In TypeScript, check `client.type` before reading `client.origin`, since WebMCP has no origin:
+
+```ts
+exports: ({ client }) => client.type === CLIENT_TYPE.REMOTE_WINDOW && client.origin === 'https://partner.example'
+    ? { greet, refund }
+    : { greet }
+```
+
 ## Describing functions
 
-`describe.function()` adds a description and schemas to a function. The description shows up in the [manifest](#the-manifest) and the schemas validate arguments before your function runs:
+`tool()` adds a description and schemas to a function. The description shows up in the [manifest](#the-manifest) and the schemas validate arguments before your function runs. Functions made with `tool()` are also the ones [AI agents](#ai-agents-webmcp) can use, if you let them:
 
 ```js
 import { z } from 'zod';
-import { describe, serve } from 'glottis';
+import { serve, tool } from 'glottis';
 
 serve({
     clients:  { remoteWindow: { allowed: true, domain: '*' } },
     exports: {
         cart: {
-            add: describe.function({
+            add: tool({
                 description: 'Add a product to the cart',
                 input:       z.object({ id: z.string(), quantity: z.number().int().min(1).default(1) }),
                 handler:     ({ id, quantity }) => addToCart({ id, quantity })
@@ -377,20 +386,22 @@ The handler receives the validated value, with defaults applied.
 - **Plain JSON Schema objects** are accepted as documentation only; they do not validate.
 
 ```js
-describe.function({
+tool({
     handler:    ({ id }) => lookup(id),
     input:      { type: 'object', properties: { id: { type: 'string' } }, required: [ 'id' ] }
 });
 ```
 
-`describe.function()` works on any function, including ones you return from other calls, so the methods of a returned object can be described too.
+`tool()` works on any function, including ones you return from other calls, so the methods of a returned object can be described too.
+
+Before 0.3, `tool()` was called `describe.function()`. That name still works, and goes in the next release.
 
 ### once
 
 A function marked `once: true` is released after its first call. Calling it again rejects:
 
 ```js
-confirm: describe.function({ handler: () => placeOrder(), once: true })
+confirm: tool({ handler: () => placeOrder(), once: true })
 ```
 
 ### The manifest
@@ -558,6 +569,196 @@ Content scripts in an extension's isolated world cannot see the page's globals, 
 
 To keep a service away from scripts on the page, serve it with `clients: { localWindow: { allowed: false } }`. If no service on the page allows them, `window.glottis` is not installed at all.
 
+## AI agents (WebMCP)
+
+> Experimental. [WebMCP](https://github.com/webmachinelearning/webmcp) is a draft browser API, and the `webMcp` client follows it as it changes, outside semver, until it settles.
+
+WebMCP lets a page offer tools to AI agents: the browser's own agent, and sites that embed the page. Allow the `webMcp` client, and every function you made with `tool()` becomes one:
+
+```js
+import { serve, tool } from 'glottis';
+
+serve({
+    clients: { webMcp: { allowed: true } },
+    exports: {
+        getRecentlyViewed: tool({
+            description: 'List the products this user viewed recently',
+            handler:     () => JSON.parse(localStorage.getItem('recentlyViewed') ?? '[]')
+        })
+    }
+});
+```
+
+An agent now sees a tool called `getRecentlyViewed`, and calling it runs your function. That's the whole setup: there is nothing to register by hand, and nothing else to call.
+
+### What becomes a tool
+
+Only functions made with `tool()`. Plain functions and constants stay available to other windows and scripts on the page, as always, but agents never see them:
+
+```js
+exports: {
+    version: '2.1',                                  // a constant: not a tool
+    hello:   ({ name }) => `Hello, ${ name }!`,      // a plain function: not a tool
+    cart: {
+        add: tool({                                  // a tool, called cart_add
+            description: 'Add a product to the cart',
+            input:       z.object({ id: z.string(), quantity: z.number().int().min(1).default(1) }),
+            handler:     ({ id, quantity }) => addToCart({ id, quantity })
+        })
+    }
+}
+```
+
+- **Names** come from the path, joined with `_`: `cart.add` is `cart_add`. A service other than `default` adds its name in front, as in `checkout_cart_add`. Pass `name` to `tool()` to choose your own. Characters other than letters, digits, `_` and `-` become `_`, and names are kept to 64 characters, so they also work with MCP clients.
+- **Descriptions** come from `description`. Agents choose tools by their descriptions, so write them for a model to read.
+- **Arguments** are checked against `input` before your function runs, exactly as for any other caller. A tool with no `input` takes no arguments. Agents always send an object of named arguments, so an `input` that isn't an object, like `z.string()`, is sent as `{ value }` and your function receives just the value.
+- **Annotations** pass straight to WebMCP:
+
+  ```js
+  buyNow: tool({
+      description: 'Buy everything in the cart',
+      annotations: { consequentialHint: true },    // agents may ask the user first
+      handler:     () => checkout()
+  })
+  ```
+
+  WebMCP knows `readOnlyHint` (no side effects), `consequentialHint` (significant or irreversible) and `untrustedContentHint` (the result holds outside content, such as reviews, to treat as data). Annotations also appear in the [manifest](#the-manifest).
+
+### What an agent gets back
+
+Whatever your function returns, as JSON. There's no wrapper: data goes as it is, and an error your function throws fails the call.
+
+- A function that returns nothing gives `null`.
+- Plain functions and promises inside a result are left out of objects, and become `null` in arrays.
+- Values JSON can't hold, like a `BigInt` or an object that contains itself, fail the call.
+
+### Tools that return tools
+
+A function made with `tool()` inside a result becomes a new tool, bound to that result. The agent can then call it without passing any IDs:
+
+```js
+exports: {
+    openCart: tool({
+        description: 'Open the shopping cart',
+        handler:     () => {
+            const cart = createCart();
+
+            return {
+                items: cart.items,
+                add:   tool({ description: 'Add a product to this cart', input: z.object({ id: z.string() }), handler: ({ id }) => cart.add(id) }),
+                buy:   tool({ description: 'Buy everything in this cart', once: true, handler: () => cart.checkout() })
+            };
+        }
+    })
+}
+```
+
+The agent calls `openCart` and gets back:
+
+```json
+{ "items": [], "add": { "$tool": "openCart_1_add" }, "buy": { "$tool": "openCart_1_buy" } }
+```
+
+Each `{ "$tool": ... }` names a tool that now exists, so the agent can go on to call `openCart_1_add({ id: 'red-mug' })` and then `openCart_1_buy()`.
+
+- **Each call gets its own number.** A second `openCart` gives `openCart_2_add`, and numbers are never reused, so an old name can't reach a newer cart.
+- **Descriptions say where a tool came from:** "From openCart (call 1): Add a product to this cart".
+- **Bound tools go away** after a `once` tool's call, on `stop()`, when the page reloads, and when there are too many. The 20 most recently used results keep their tools, and older ones lose theirs. Change the limit with `webMcp: { allowed: true, maxBoundResults }`.
+- **They survive `updateExports()`**, just as references held by code callers do.
+
+### Who can use the tools
+
+By default, the browser's own agent and pages on your own origin. To also offer them to sites that embed your page, list those sites' origins:
+
+```js
+clients: { webMcp: { allowed: true, domain: 'https://chatgpt.com' } }
+clients: { webMcp: { allowed: true, domain: [ 'https://chatgpt.com', 'https://claude.ai' ] } }
+```
+
+WebMCP only accepts exact origins here, so a pattern, a callback or `'*'` throws.
+
+### Different exports for agents
+
+When `exports` is a function, it runs once for WebMCP, with `client.type` set to `CLIENT_TYPE.WEB_MCP`. There's no caller and no props. Use it to give agents a different set of exports from your other callers:
+
+```js
+import { CLIENT_TYPE, serve, tool } from 'glottis';
+
+serve({
+    clients: { remoteWindow: { allowed: true, domain: '*' }, webMcp: { allowed: true } },
+    exports: ({ client }) => {
+        switch (client.type) {
+            case CLIENT_TYPE.WEB_MCP:
+                return { search };                       // agents can only search
+            case CLIENT_TYPE.REMOTE_WINDOW:
+            case CLIENT_TYPE.LOCAL_WINDOW:
+                return { search, refund };
+        }
+    }
+});
+```
+
+`updateExports()` runs it again, and only re-registers the tools that changed, so agents keep the rest without a gap.
+
+### Asking the user
+
+There's no connection to approve, so there are two places to ask instead:
+
+- **Before offering tools at all.** The exports function can wait for the user's answer, and return fewer tools, or none, if they decline:
+
+  ```js
+  exports: async ({ client }) => {
+      if (client.type === CLIENT_TYPE.WEB_MCP && !await askUser('Let AI assistants use this page?')) {
+          return {};
+      }
+
+      return { search, buyNow };
+  }
+  ```
+
+- **Inside a risky tool.** Show your own confirmation in the page, and only go ahead once the user clicks. This is the strongest check, because the agent can't click for them:
+
+  ```js
+  buyNow: tool({
+      description: 'Buy everything in the cart',
+      annotations: { consequentialHint: true },
+      handler:     async () => {
+          if (!await confirmInPage(`Place this order for ${ cart.total }?`)) {
+              throw new Error('The user declined');
+          }
+
+          return checkout();
+      }
+  })
+  ```
+
+### Frames
+
+A page in a cross-origin iframe can only offer tools if the page embedding it allows it, with the `tools` permission:
+
+```js
+connect({ url, target: { type: 'iframe', container, attributes: { allow: 'tools' } } });
+```
+
+Without it, the frame offers no tools, and glottis logs nothing, because that's the normal case for a frame. `connect()` never grants the permission for you: letting another site offer tools to the agent on your page is your decision.
+
+### When tools can't be registered
+
+`serve()` returns before tools are registered, so glottis reports problems with `console.error`, naming the tool and the reason: two tools with the same name (neither is registered), an `input` schema that can't become JSON Schema (pass `jsonSchema.input`), a name over 64 characters, or the browser refusing a tool. The other tools are registered as normal.
+
+In a browser without WebMCP, nothing happens and nothing is logged. To check for yourself, use `'modelContext' in document`.
+
+### Trying it out
+
+Chrome has WebMCP behind a flag. Start it with `--enable-features=WebMCP`, or turn on WebMCP in `chrome://flags`, and `document.modelContext` appears. You can then list and run your tools from the console:
+
+```js
+const tools = await document.modelContext.getTools();
+await document.modelContext.executeTool(tools.find(tool => tool.name === 'cart_add'), { id: 'red-mug' });
+```
+
+One thing to know about Chrome today: when a tool throws, the caller only learns that the call failed, not your error's message.
+
 ## TypeScript
 
 Pages can publish the type of their exports, and callers can use it:
@@ -632,7 +833,7 @@ Plenty of libraries help windows talk to each other. Here is how glottis relates
 
 **[Cap'n Web](https://github.com/cloudflare/capnweb)** is Cloudflare's object-capability RPC. It goes further than glottis in some ways: promise pipelining sends a chain of dependent calls in one round trip, and it runs over HTTP and WebSockets as well as `postMessage`. It is built for those transports, and asks you to dispose of every reference explicitly. It does not open frames, discover services, or check origins for you. glottis keeps a simpler model, where data is copied and functions are live, and does the frame handling for you.
 
-**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/npm-packages), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. glottis is for code calling code, where callbacks and live objects matter. Projecting glottis's described exports as WebMCP tools is on the roadmap.
+**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/npm-packages), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. glottis is for code calling code, where callbacks and live objects matter, and it can also offer your `tool()` functions to agents through WebMCP, with no second list of tools to keep in sync. See [AI agents](#ai-agents-webmcp).
 
 **Plain `postMessage`** is what all of these wrap. It is enough for a message or two. glottis is worth it once you would otherwise be writing request ids, origin checks, timeouts and callback plumbing yourself.
 
@@ -649,8 +850,8 @@ Plenty of libraries help windows talk to each other. Here is how glottis relates
 
 | Option | Type | |
 | --- | --- | --- |
-| `clients` | `{ remoteWindow?: { allowed, domain? }, localWindow?: { allowed } }` | Who may connect. Remote windows are off until allowed with a `domain` (a string, RegExp, array, or `({ origin }) => boolean \| Promise<boolean>`); scripts on the page are on. |
-| `exports` | object, or `(context) => object \| Promise<object>` | Required. What the page offers. |
+| `clients` | `{ remoteWindow?: { allowed, domain? }, localWindow?: { allowed }, webMcp?: { allowed, domain?, maxBoundResults? } }` | Who may connect. Remote windows are off until allowed with a `domain` (a string, RegExp, array, or `({ origin }) => boolean \| Promise<boolean>`); scripts on the page are on; WebMCP is off, and its `domain` takes exact origins only. |
+| `exports` | object, or `({ client, props, onProps, getProps }) => object \| Promise<object>` | Required. What the page offers. |
 | `service` | string | The service name. Defaults to `'default'`. |
 | `description` | string | Describes the service in the manifest. |
 | `props` | schema | Validates the caller's props. |
@@ -686,7 +887,7 @@ Resolves with a connection:
 | `getExports()` | Pulls the page's current exports. |
 | `disconnect()` | Ends the connection. |
 
-### `describe.function(options)`
+### `tool(options)`
 
 | Option | |
 | --- | --- |
@@ -694,7 +895,15 @@ Resolves with a connection:
 | `description` | A sentence about what it does. |
 | `input`, `output` | Schemas for the first argument and the result. |
 | `jsonSchema` | `{ input?, output? }` JSON Schema for the manifest, for validators that cannot produce it. |
+| `name` | The WebMCP tool name, in place of the one built from its path. |
+| `annotations` | WebMCP hints, such as `{ readOnlyHint: true }`, passed through as they are. |
 | `once` | Release after the first call. |
+
+`describe.function(options)` is the old name for `tool()`, and goes in the next release.
+
+### `CLIENT_TYPE`
+
+`REMOTE_WINDOW` (`'remoteWindow'`), `LOCAL_WINDOW` (`'localWindow'`) and `WEB_MCP` (`'webMcp'`): the values of `client.type` in the exports function.
 
 ### Errors
 
@@ -715,12 +924,11 @@ glottis runs on [post-robot](https://github.com/bluepnume/post-robot), which car
 3. The page checks the caller's origin, builds the exports, and answers with them and the manifest.
 4. A frame that loaded before `connect()` was called is asked once to announce again.
 
-The script-tag build is about 56 KB minified and 19 KB gzipped, most of it post-robot. With a bundler, a page that only calls `serve()` leaves out the code for opening frames and popups.
+The script-tag build is about 64 KB minified and 22 KB gzipped, most of it post-robot. With a bundler, a page that only calls `serve()` leaves out the code for opening frames and popups.
 
 ### Not yet
 
 - Cancelling a call already in progress with an `AbortSignal`.
-- Exposing exports to AI agents through the browser's WebMCP API.
 - Callers in an extension's isolated world.
 - Version negotiation between different releases of glottis.
 
