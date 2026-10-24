@@ -13,7 +13,7 @@ type Local = {
     readonly call : (args : { readonly fn : (value : number) => Promise<number> }) => Promise<number>,
 };
 
-type SporGlobal = { readonly connect : (options ?: { readonly service ?: string }) => Promise<Connection<Local>> };
+type GlottisGlobal = { readonly connect : (options ?: { readonly service ?: string }) => Promise<Connection<Local>> };
 
 const items = [ 'a', 'b' ];
 
@@ -51,8 +51,8 @@ afterAll(() => {
 });
 
 describe('connecting to a service on this page', () => {
-    it('is reachable through window.spor.connect()', async () => {
-        const global = (window as unknown as { readonly spor : SporGlobal }).spor;
+    it('is reachable through window.glottis.connect()', async () => {
+        const global = (window as unknown as { readonly glottis : GlottisGlobal }).glottis;
         const page = await global.connect({ service: 'local-test' });
 
         expect(await page.exports.greet()).toBe('hello nobody');
@@ -63,7 +63,7 @@ describe('connecting to a service on this page', () => {
     it('only connects to this page from the installed global', async () => {
         type RemoteAttempt = { readonly connect : (options : { readonly url : string }) => Promise<unknown> };
 
-        const global = (window as unknown as { readonly spor : RemoteAttempt }).spor;
+        const global = (window as unknown as { readonly glottis : RemoteAttempt }).glottis;
 
         await expect(global.connect({ url: `https://example.com` })).rejects.toThrow(`only connects to services on this page`);
     });
@@ -157,7 +157,7 @@ describe('connecting to a service on this page', () => {
 
         type Global = { readonly connect : () => Promise<unknown> };
 
-        const global = (window as unknown as { readonly spor : Global }).spor;
+        const global = (window as unknown as { readonly glottis : Global }).glottis;
 
         await expect(global.connect()).rejects.toThrow('No service "default"');
     });

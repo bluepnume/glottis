@@ -16,7 +16,7 @@ import { guard } from './guard';
 
 export type DisconnectInfo = {
     readonly reason : DisconnectReason,
-    // True when the page navigated and spor is waiting for it to serve again.
+    // True when the page navigated and glottis is waiting for it to serve again.
     readonly reconnecting : boolean,
 };
 
@@ -56,7 +56,7 @@ type CreateClientOptions<Exports> = ConnectionCallbacks<Exports> & {
     readonly props : Props,
     readonly window : Window | undefined,
     readonly frame : HTMLIFrameElement | undefined,
-    // Removes whatever spor created for this connection.
+    // Removes whatever glottis created for this connection.
     readonly release : () => void,
 };
 

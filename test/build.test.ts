@@ -16,7 +16,7 @@ const BUDGET = { raw: 60 * 1024, gzip: 20 * 1024 };
 
 describe('the build', () => {
     it('lets a page that only serves leave the connect side out', async () => {
-        const outDir = await mkdtemp(path.join(os.tmpdir(), 'spor-shake-'));
+        const outDir = await mkdtemp(path.join(os.tmpdir(), 'glottis-shake-'));
 
         try {
             await build({ root, outDir, declarations: false });
@@ -36,7 +36,7 @@ describe('the build', () => {
 
             const output = bundled.outputFiles.map(file => file.text).join('\n');
 
-            expect(output).toContain('spor_announce');
+            expect(output).toContain('glottis_announce');
             expect(output).not.toContain('No element matches container');
         } finally {
             await rm(outDir, { recursive: true, force: true });
@@ -49,7 +49,7 @@ describe('the build', () => {
             bundle:      true,
             write:       false,
             format:      'iife',
-            globalName:  'spor',
+            globalName:  'glottis',
             minify:      true,
             target:      'es2019'
         });

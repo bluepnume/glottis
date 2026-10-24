@@ -1,7 +1,7 @@
 import type { BuildOptions } from 'cugel-scripts/build';
 
 // ES2019 syntax, and one minified script-tag bundle for pages that load
-// spor directly, as `window.spor`.
+// glottis directly, as `window.glottis`.
 // eslint-disable-next-line import/no-default-export -- cugel-scripts reads the config's default export
 export default {
     build: {
@@ -9,8 +9,8 @@ export default {
 
         bundle: {
             entry:      'src/index.ts',
-            outfile:    'dist/spor.min.js',
-            globalName: 'spor'
+            outfile:    'dist/glottis.min.js',
+            globalName: 'glottis'
         }
     } satisfies Omit<BuildOptions, 'root'>
 };

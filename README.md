@@ -1,12 +1,12 @@
-# spor
+# glottis
 
 Give a web page a public client API. A page calls `serve()` with some functions, and any other page, frame, popup or in-page script calls `connect()` and uses them as if they were local. Functions travel by reference in both directions, so you can pass callbacks and return objects full of live methods.
 
-The name comes from the spore a fungal network grows from: each page that calls `serve()` is one more node in a web of connected frames.
+The glottis is the opening your voice comes out of. A page that calls `serve()` opens one, and other pages can talk to it.
 
 ```js
 // On https://shop.example/api, the page being called
-import { serve } from 'spor';
+import { serve } from 'glottis';
 
 serve({
     domain:  '*',
@@ -22,7 +22,7 @@ serve({
 
 ```js
 // On any other site
-import { connect } from 'spor';
+import { connect } from 'glottis';
 
 const shop = await connect({ url: 'https://shop.example/api' });
 
@@ -69,19 +69,19 @@ That is the whole idea. Everything below builds on these two calls, one step at 
 ## Install
 
 ```sh
-npm install spor
+npm install glottis
 ```
 
-Or, on a page without a bundler, load the script-tag build. It defines `window.spor`:
+Or, on a page without a bundler, load the script-tag build. It defines `window.glottis`:
 
 ```html
-<script src="https://unpkg.com/spor/dist/spor.min.js"></script>
+<script src="https://unpkg.com/glottis/dist/glottis.min.js"></script>
 <script>
-    window.spor.serve({ domain: '*', exports: { ping: () => 'pong' } });
+    window.glottis.serve({ domain: '*', exports: { ping: () => 'pong' } });
 </script>
 ```
 
-spor supports current versions of Chrome, Edge, Firefox and Safari.
+glottis supports current versions of Chrome, Edge, Firefox and Safari.
 
 ## The basics
 
@@ -138,7 +138,7 @@ This removes the hidden iframe and releases everything the connection held. Call
 
 ## What crosses the boundary
 
-spor has one rule: **data is copied, functions are live.**
+glottis has one rule: **data is copied, functions are live.**
 
 - **Plain data** (objects, arrays, strings, numbers, booleans, `null`, `undefined`, `Date`, `RegExp`) is copied. Changing a copy changes nothing on the other side.
 - **Functions** go by reference. The other side gets a function that calls the original in its own window and resolves with the result.
@@ -231,7 +231,7 @@ serve({ domain: '*', exports });                                        // anyon
 
 A caller that is refused gets a `DomainError` from `connect()`.
 
-The caller checks the other direction automatically. When you connect by `url`, spor only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
+The caller checks the other direction automatically. When you connect by `url`, glottis only talks to a page at that URL's origin. You can widen or replace that check with the same `domain` option on `connect()`.
 
 ## Props
 
@@ -250,7 +250,7 @@ The page reads props through the per-connection form of `exports`, described nex
 
 ## Exports per connection
 
-`exports` can also be a function. spor calls it once for every connection, with what it knows about the caller:
+`exports` can also be a function. glottis calls it once for every connection, with what it knows about the caller:
 
 ```js
 serve({
@@ -289,7 +289,7 @@ Every connection gets its own run of this function, so each caller has its own s
 
 ```js
 import { z } from 'zod';
-import { describe, serve } from 'spor';
+import { describe, serve } from 'glottis';
 
 serve({
     domain:  '*',
@@ -316,7 +316,7 @@ The handler receives the validated value, with defaults applied.
 
 ### Schemas
 
-`input` and `output` accept any [Standard Schema](https://standardschema.dev) validator, such as zod, valibot or arktype. spor does not depend on any of them.
+`input` and `output` accept any [Standard Schema](https://standardschema.dev) validator, such as zod, valibot or arktype. glottis does not depend on any of them.
 
 - **Validators that can describe themselves as JSON Schema** (zod 4 can) put that JSON Schema in the manifest automatically.
 - **Other validators** still validate. Pass `jsonSchema: { input, output }` if you want JSON Schema in the manifest too.
@@ -421,7 +421,7 @@ button.addEventListener('click', async () => {
 });
 ```
 
-Browsers only open popups during a click, and spor opens the window as its very first step, so call `connect()` directly in the click handler, before any `await`. spor closes the popup on disconnect, and ends the connection if the user closes it.
+Browsers only open popups during a click, and glottis opens the window as its very first step, so call `connect()` directly in the click handler, before any `await`. glottis closes the popup on disconnect, and ends the connection if the user closes it.
 
 ### A frame or window you already have
 
@@ -430,7 +430,7 @@ await connect({ target: document.querySelector('iframe'), domain: 'https://shop.
 await connect({ target: someWindow, domain: 'https://shop.example' });
 ```
 
-There is no URL to check against, so `domain` is required. spor never removes a frame or window it did not create.
+There is no URL to check against, so `domain` is required. glottis never removes a frame or window it did not create.
 
 ## The connection lifecycle
 
@@ -468,7 +468,7 @@ await connect({
 
 ### Navigation and reloads
 
-When the page in the frame navigates or reloads, the connection survives. spor reports `onDisconnect({ reason: 'navigated', reconnecting: true })`, waits for the new page to serve the same service, connects again with the current props, and reports `onReconnect`. This matters for sign-in flows, which usually navigate the frame.
+When the page in the frame navigates or reloads, the connection survives. glottis reports `onDisconnect({ reason: 'navigated', reconnecting: true })`, waits for the new page to serve the same service, connects again with the current props, and reports `onReconnect`. This matters for sign-in flows, which usually navigate the frame.
 
 References from the old page reject with a `DisconnectedError`, because the functions they pointed at are gone. Take fresh ones from `connection.exports` after `onReconnect`.
 
@@ -489,11 +489,11 @@ Serving the same name twice on one page throws.
 
 ## Callers on the same page
 
-A serving page also gets `window.spor.connect()`, so other code in the page, browser extensions running in the page's main world, and browser automation agents can use its API without a frame:
+A serving page also gets `window.glottis.connect()`, so other code in the page, browser extensions running in the page's main world, and browser automation agents can use its API without a frame:
 
 ```js
-const page = await window.spor.connect();                       // the default service
-const checkout = await window.spor.connect({ service: 'checkout' });
+const page = await window.glottis.connect();                       // the default service
+const checkout = await window.glottis.connect({ service: 'checkout' });
 ```
 
 These connections behave exactly like remote ones. Data is copied and functions are references, so code that works here works across frames too.
@@ -506,7 +506,7 @@ Pages can publish the type of their exports, and callers can use it:
 
 ```ts
 // page
-import type { ExportsOf } from 'spor';
+import type { ExportsOf } from 'glottis';
 
 const exports = { add: ({ a, b } : { a : number, b : number }) => a + b };
 
@@ -560,25 +560,25 @@ If either page sends `Cross-Origin-Opener-Policy: same-origin`, the browser cuts
 
 ## Compared with other libraries
 
-Plenty of libraries help windows talk to each other. Here is how spor relates to the ones you are most likely to be weighing it against.
+Plenty of libraries help windows talk to each other. Here is how glottis relates to the ones you are most likely to be weighing it against.
 
-**[zoid](https://github.com/bluepnume/zoid)** renders cross-domain components. Both sides load a shared component definition, and zoid handles the iframe or popup, its size, a prerender, props and the component's lifecycle. Use zoid when what you are embedding is a component. Use spor when what you want from the other page is an API: there is no definition to publish, the caller discovers what the page exports, and the page can run hidden. The two fit together, since a zoid component's exports can be built on spor.
+**[zoid](https://github.com/bluepnume/zoid)** renders cross-domain components. Both sides load a shared component definition, and zoid handles the iframe or popup, its size, a prerender, props and the component's lifecycle. Use zoid when what you are embedding is a component. Use glottis when what you want from the other page is an API: there is no definition to publish, the caller discovers what the page exports, and the page can run hidden. The two fit together, since a zoid component's exports can be built on glottis.
 
-**[post-robot](https://github.com/bluepnume/post-robot)** is the messaging layer spor runs on. It sends named messages between windows and passes functions by reference. Use it directly if you want raw messages. Use spor when you want the parts around them: opening the frame or popup, the handshake, the manifest, props, reconnecting after navigation, and validation.
+**[post-robot](https://github.com/bluepnume/post-robot)** is the messaging layer glottis runs on. It sends named messages between windows and passes functions by reference. Use it directly if you want raw messages. Use glottis when you want the parts around them: opening the frame or popup, the handshake, the manifest, props, reconnecting after navigation, and validation.
 
-**[Penpal](https://github.com/Aaronius/penpal)** is the closest in spirit: a handshake, then a proxy of the methods the other side offers. You create and manage the iframe yourself, arguments and results are copied as data so you cannot pass a callback, and there is no list of what the other side offers until a call fails. spor opens the frame for you, passes functions both ways, and tells you what is exported up front.
+**[Penpal](https://github.com/Aaronius/penpal)** is the closest in spirit: a handshake, then a proxy of the methods the other side offers. You create and manage the iframe yourself, arguments and results are copied as data so you cannot pass a callback, and there is no list of what the other side offers until a call fails. glottis opens the frame for you, passes functions both ways, and tells you what is exported up front.
 
-**[Comlink](https://github.com/GoogleChromeLabs/comlink)** makes a worker or another window look like a local object. It is excellent for Web Workers. Functions only cross when you wrap them with `Comlink.proxy()`, and references stay alive until you release them by hand. It has no handshake for frames, does not open them, and has no origin policy of its own. spor is built for pages on other origins, passes every function by reference without wrapping, and releases references when they are collected.
+**[Comlink](https://github.com/GoogleChromeLabs/comlink)** makes a worker or another window look like a local object. It is excellent for Web Workers. Functions only cross when you wrap them with `Comlink.proxy()`, and references stay alive until you release them by hand. It has no handshake for frames, does not open them, and has no origin policy of its own. glottis is built for pages on other origins, passes every function by reference without wrapping, and releases references when they are collected.
 
 **[Postmate](https://github.com/dollarshaveclub/postmate)** connects a parent to a child iframe and lets the parent read values and call methods. It cannot pass functions, and it has not had a release in years.
 
-**[Cap'n Web](https://github.com/cloudflare/capnweb)** is Cloudflare's object-capability RPC. It goes further than spor in some ways: promise pipelining sends a chain of dependent calls in one round trip, and it runs over HTTP and WebSockets as well as `postMessage`. It is built for those transports, and asks you to dispose of every reference explicitly. It does not open frames, discover services, or check origins for you. spor keeps a simpler model, where data is copied and functions are live, and does the frame handling for you.
+**[Cap'n Web](https://github.com/cloudflare/capnweb)** is Cloudflare's object-capability RPC. It goes further than glottis in some ways: promise pipelining sends a chain of dependent calls in one round trip, and it runs over HTTP and WebSockets as well as `postMessage`. It is built for those transports, and asks you to dispose of every reference explicitly. It does not open frames, discover services, or check origins for you. glottis keeps a simpler model, where data is copied and functions are live, and does the frame handling for you.
 
-**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/npm-packages), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. spor is for code calling code, where callbacks and live objects matter. Projecting spor's described exports as WebMCP tools is on the roadmap.
+**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/npm-packages), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. glottis is for code calling code, where callbacks and live objects matter. Projecting glottis's described exports as WebMCP tools is on the roadmap.
 
-**Plain `postMessage`** is what all of these wrap. It is enough for a message or two. spor is worth it once you would otherwise be writing request ids, origin checks, timeouts and callback plumbing yourself.
+**Plain `postMessage`** is what all of these wrap. It is enough for a message or two. glottis is worth it once you would otherwise be writing request ids, origin checks, timeouts and callback plumbing yourself.
 
-### When to use spor
+### When to use glottis
 
 - **You want an API from another page, not a component.** A site offers functions, and other sites call them, with no definition for both sides to share.
 - **You want callbacks and live objects across origins.** Pass `onChange` handlers, return a cart and call its methods.
@@ -649,7 +649,7 @@ Resolves with a connection:
 
 ## How it works
 
-spor runs on [post-robot](https://github.com/bluepnume/post-robot), which carries messages between windows, and [sandestin](https://github.com/bluepnume/sandestin), which turns functions and promises into references that call home.
+glottis runs on [post-robot](https://github.com/bluepnume/post-robot), which carries messages between windows, and [sandestin](https://github.com/bluepnume/sandestin), which turns functions and promises into references that call home.
 
 1. When a page calls `serve()`, it announces its services to the window that framed or opened it.
 2. `connect()` listens for that announcement, checks the page's origin, and sends a connect request with the service name and props.
@@ -663,7 +663,7 @@ The script-tag build is about 56 KB minified and 19 KB gzipped, most of it post-
 - Cancelling a call already in progress with an `AbortSignal`.
 - Exposing exports to AI agents through the browser's WebMCP API.
 - Callers in an extension's isolated world.
-- Version negotiation between different releases of spor.
+- Version negotiation between different releases of glottis.
 
 ## License
 

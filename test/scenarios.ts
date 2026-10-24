@@ -235,9 +235,9 @@ const late : Scenario = () => {
 
 // Serves to anyone at first; once reloaded, refuses everyone.
 const refuseOnReload : Scenario = () => {
-    const reloaded = sessionStorage.getItem('spor-reloaded') === 'yes';
+    const reloaded = sessionStorage.getItem('glottis-reloaded') === 'yes';
 
-    sessionStorage.setItem('spor-reloaded', 'yes');
+    sessionStorage.setItem('glottis-reloaded', 'yes');
 
     serve({
         domain: reloaded

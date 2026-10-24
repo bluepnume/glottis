@@ -5,7 +5,7 @@ import { cleanFrames, pageUrl } from './common';
 afterEach(cleanFrames);
 
 describe('the script-tag bundle', () => {
-    it('serves from dist/spor.min.js through window.spor', async () => {
+    it('serves from dist/glottis.min.js through window.glottis', async () => {
         type Bundle = {
             readonly add : (args : { readonly a : number, readonly b : number }) => number,
             readonly version : string,

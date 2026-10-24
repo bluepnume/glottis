@@ -1,4 +1,4 @@
-// The message names spor sends over post-robot, the protocol version
+// The message names glottis sends over post-robot, the protocol version
 // every announce carries, and the defaults callers can override.
 
 export const PROTOCOL_VERSION = 1;
@@ -13,23 +13,23 @@ export const CLOSE_POLL_INTERVAL = 500;
 
 export const MESSAGE = {
     // page -> caller
-    ANNOUNCE:        'spor_announce',
-    END:             'spor_end',
-    EXPORTS_CHANGED: 'spor_exports_changed',
-    GET_PROPS:       'spor_get_props',
+    ANNOUNCE:        'glottis_announce',
+    END:             'glottis_end',
+    EXPORTS_CHANGED: 'glottis_exports_changed',
+    GET_PROPS:       'glottis_get_props',
 
     // caller -> page
-    CONNECT:      'spor_connect',
-    NUDGE:        'spor_nudge',
-    UPDATE_PROPS: 'spor_update_props',
-    GET_EXPORTS:  'spor_get_exports',
-    DISCONNECT:   'spor_disconnect'
+    CONNECT:      'glottis_connect',
+    NUDGE:        'glottis_nudge',
+    UPDATE_PROPS: 'glottis_update_props',
+    GET_EXPORTS:  'glottis_get_exports',
+    DISCONNECT:   'glottis_disconnect'
 } as const;
 
 // The goodbye a page sends as it unloads goes as a plain postMessage under
 // this key: a message sent while a page unloads arrives with no source
 // window, which post-robot (rightly) drops.
-export const GOODBYE_KEY = '__spor_goodbye__';
+export const GOODBYE_KEY = '__glottis_goodbye__';
 
 export const TARGET_TYPE = {
     IFRAME: 'iframe',
@@ -46,7 +46,7 @@ export const DISCONNECT_REASON = {
     STOPPED:      'stopped',
     // The frame or popup closed, or its element left the page.
     CLOSED:       'closed',
-    // The page navigated or reloaded; spor is reconnecting.
+    // The page navigated or reloaded; glottis is reconnecting.
     NAVIGATED:    'navigated',
     // The page navigated and did not serve again in time.
     GONE:         'gone'
