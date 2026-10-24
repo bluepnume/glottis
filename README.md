@@ -574,7 +574,7 @@ Plenty of libraries help windows talk to each other. Here is how spor relates to
 
 **[Cap'n Web](https://github.com/cloudflare/capnweb)** is Cloudflare's object-capability RPC. It goes further than spor in some ways: promise pipelining sends a chain of dependent calls in one round trip, and it runs over HTTP and WebSockets as well as `postMessage`. It is built for those transports, and asks you to dispose of every reference explicitly. It does not open frames, discover services, or check origins for you. spor keeps a simpler model, where data is copied and functions are live, and does the frame handling for you.
 
-**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/webmcp), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. spor is for code calling code, where callbacks and live objects matter. Projecting spor's described exports as WebMCP tools is on the roadmap.
+**[WebMCP](https://github.com/webmachinelearning/webmcp)**, and its polyfill [MCP-B](https://github.com/WebMCP-org/npm-packages), let a page register tools for AI agents. Tools take JSON and return a string, with no function references, because the caller is a model. spor is for code calling code, where callbacks and live objects matter. Projecting spor's described exports as WebMCP tools is on the roadmap.
 
 **Plain `postMessage`** is what all of these wrap. It is enough for a message or two. spor is worth it once you would otherwise be writing request ids, origin checks, timeouts and callback plumbing yourself.
 
