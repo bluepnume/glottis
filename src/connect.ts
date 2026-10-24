@@ -43,7 +43,8 @@ export type ConnectOptions<Exports = unknown> = ConnectionCallbacks<Exports> & {
     readonly domain ?: DomainMatcher,
     readonly service ?: string,
     readonly props ?: Props,
-    // Milliseconds to wait for the page; 0 waits forever.
+    // Milliseconds to wait for the page to serve; 0 waits forever. Once it
+    // has, connect() waits for its answer however long it takes.
     readonly timeout ?: number,
     readonly signal ?: AbortSignal,
 };
@@ -201,10 +202,12 @@ const connectRemote = <Exports>(
         client.end({ reason: DISCONNECT_REASON.CLOSED, notify: false });
     };
 
+    // Not while a connect request is out: the page has been found, and a
+    // late goodbye from the page before it must not cut the answer short.
     const startGiveUp = () : void => {
         clearTimeout(giveUp);
 
-        if (timeout > 0) {
+        if (!connecting && timeout > 0) {
             giveUp = setTimeout(() => {
                 client.end({ reason: DISCONNECT_REASON.GONE, notify: false });
             }, timeout);
@@ -223,6 +226,12 @@ const connectRemote = <Exports>(
                 return;
             }
 
+            // The page is there and serving. The timeouts were only ever for
+            // finding it; its answer can take as long as it needs, such as a
+            // page asking its user first.
+            clearTimeout(connectTimer);
+            clearTimeout(giveUp);
+
             const { data } = await send(win, MESSAGE.CONNECT, {
                 service,
                 props:        client.props(),
@@ -233,12 +242,10 @@ const connectRemote = <Exports>(
             const response = data as ConnectResponse;
 
             instanceId = response.instanceId;
-            clearTimeout(giveUp);
             client.connected({ channel: remoteChannel({ win, origin, id }), origin, payload: response });
 
             if (!settled) {
                 settled = true;
-                clearTimeout(connectTimer);
                 resolve(client.connection);
             }
         } catch (err) {

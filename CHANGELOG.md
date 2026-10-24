@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 (2026-10-24)
+
+* `connect()`'s timeout stops once the page announces itself, so a page that asks its user before answering is never cut off, on the first connect or on reconnecting after a navigation
+
 ## 0.1.2 (2026-10-24)
 
 * `connect({ target })` connects to a frame whose page loaded before the caller ever used glottis (post-robot 12.2.1 asks the frame for the hello it already sent to nobody)

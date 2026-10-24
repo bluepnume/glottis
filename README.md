@@ -257,7 +257,7 @@ If the user agrees, `connect()` resolves with the exports. If they decline, `con
 
 ```js
 try {
-    const shop = await connect({ url, target: { type: 'popup' }, timeout: 0 });
+    const shop = await connect({ url, target: { type: 'popup' } });
 } catch (err) {
     err.message;   // 'The user declined'
 }
@@ -266,7 +266,7 @@ try {
 A few things to get right:
 
 - **The user has to be able to see the question.** The default hidden iframe cannot show a dialog, so a page that asks needs callers to connect with a visible iframe (`target: { type: 'iframe', container }`) or a popup. Say so in your docs.
-- **The caller should allow time for an answer.** `connect()` gives up after 10 seconds by default, which a person deciding can easily exceed. Callers of a page that asks should pass a longer `timeout`, or `0` to wait for as long as it takes.
+- **There is no timeout to worry about.** `connect()`'s timeout only covers finding a page that serves. Once yours has announced itself, the caller waits for your answer however long the user takes.
 - **Remember the answer.** Store the user's choice per origin, for example in `localStorage`, and skip the question next time, so returning callers connect at once.
 - **Ask per connection, not per page.** The function runs for every connection, so each new caller is asked, and a caller the user allowed does not open the door for anyone else.
 
@@ -484,6 +484,8 @@ controller.abort();
 
 When it gives up, it rejects with a `ConnectTimeoutError` naming the likely causes, and removes anything it created.
 
+The timeout only covers finding a page that serves. Once the page has announced itself, `connect()` waits for its answer for as long as the page takes, so a page that [asks its user first](#asking-the-user-first) is never cut off. Use a `signal` if the caller wants to stop waiting.
+
 ### Events
 
 ```js
@@ -647,7 +649,7 @@ Returns `{ stop(), updateExports(exports?) }`.
 | `domain` | same as `serve` | The origins the page may be at. Defaults to the URL's origin; required for an existing frame or window. |
 | `service` | string | Which service to connect to. Defaults to `'default'`. |
 | `props` | object | Data and functions for the page. |
-| `timeout` | number | Milliseconds to wait. Defaults to `10000`; `0` waits forever. |
+| `timeout` | number | Milliseconds to wait for the page to serve. Defaults to `10000`; `0` waits forever. Once the page has served, its answer can take as long as it needs. |
 | `signal` | `AbortSignal` | Cancels the connect. |
 | `onExportsChange`, `onDisconnect`, `onReconnect` | functions | See [Events](#events). |
 

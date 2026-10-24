@@ -1,6 +1,6 @@
 {
     "name": "glottis",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Give a page a public client API: serve() functions from a frame or window, connect() from anywhere, with live function references across the boundary.",
     "keywords": [
         "iframe",

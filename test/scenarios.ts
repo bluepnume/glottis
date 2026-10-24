@@ -253,6 +253,34 @@ const refuseOnReload : Scenario = () => {
     });
 };
 
+// Takes its time to answer, as a page asking its user would, and declines
+// when the caller's props say so.
+const askFirst : Scenario = () => {
+    serve({
+        domain: '*',
+
+        exports: async ({ props } : ExportsContext<{ readonly decline ?: boolean }>) => {
+            await new Promise(resolve => {
+                setTimeout(resolve, 2000);
+            });
+
+            if (props.decline) {
+                throw new Error('The user declined');
+            }
+
+            return {
+                allowed: true,
+
+                reload: () => {
+                    setTimeout(() => {
+                        location.reload();
+                    }, 10);
+                }
+            };
+        }
+    });
+};
+
 const none : Scenario = () => undefined;
 
 const SCENARIOS : Readonly<Record<string, Scenario>> = {
@@ -265,6 +293,7 @@ const SCENARIOS : Readonly<Record<string, Scenario>> = {
     services,
     late,
     refuseOnReload,
+    askFirst,
     none
 };
 
