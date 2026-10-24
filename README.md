@@ -8,7 +8,15 @@ import { serve } from 'mycelium';
 
 serve({
     domain:  '*',
-    exports: { hello: ({ name }) => `Hello, ${ name }!` }
+    exports: {
+        hello: ({ name }) => {
+            // This runs here, inside the child frame showing shop.example,
+            // not on the parent page that called it.
+            console.log(`Hello, ${ name }!`);
+
+            return `Hello, ${ name }!`;
+        }
+    }
 });
 ```
 
